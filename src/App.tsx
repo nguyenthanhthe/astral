@@ -209,11 +209,34 @@ export function App() {
           </div>
 
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Discovered 4 active Discord Quests. Click any mission to complete autonomously.
+            Discovered active Discord Quests & 23,800+ detectable applications.
           </p>
 
+          {/* Live Search Input Bar */}
+          <div style={{ position: 'relative', marginTop: '0.6rem', marginBottom: '0.6rem' }}>
+            <Search size={16} color="#38bdf8" style={{ position: 'absolute', left: '12px', top: '11px' }} />
+            <input
+              type="text"
+              placeholder="Search 23,800+ Discord games (e.g. Genshin, PUBG, Where Winds Meet)..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.55rem 0.6rem 0.55rem 2.3rem',
+                background: 'rgba(0,0,0,0.4)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '0.85rem',
+                outline: 'none'
+              }}
+            />
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.25rem' }}>
-            {quests.map((q) => {
+            {quests
+              .filter((q) => q.game_name.toLowerCase().includes(query.toLowerCase()) || q.title.toLowerCase().includes(query.toLowerCase()))
+              .map((q) => {
               const isCurrent = selectedQuest?.id === q.id;
               return (
                 <div
