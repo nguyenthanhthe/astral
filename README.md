@@ -2,6 +2,10 @@
 
 # Astral
 
+<p align="center">
+  <img src="src-tauri/icons/128x128.png" alt="Astral Logo" width="100">
+</p>
+
 [![GitHub Repo](https://img.shields.io/badge/GitHub-Repo-black.svg?logo=github)](https://github.com/nguyenthanhthe/astral)
 [![Releases](https://img.shields.io/github/v/release/nguyenthanhthe/astral?color=38bdf8&label=Release&logo=github)](https://github.com/nguyenthanhthe/astral/releases)
 [![License](https://img.shields.io/badge/license-MIT-red.svg?logo=mit&label=License)](LICENSE)
