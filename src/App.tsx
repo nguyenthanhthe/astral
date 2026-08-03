@@ -46,17 +46,17 @@ export function App() {
         <div className="card">
           <h2 className="card-title">Active Session Info</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
-            <div style={{ display: 'flex', justify: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Logged User:</span>
               <span style={{ fontWeight: 600 }}>telecom.no1</span>
             </div>
-            <div style={{ display: 'flex', justify: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Active Spoofed Activity:</span>
               <span style={{ color: activeGame ? '#38bdf8' : 'var(--text-muted)' }}>
                 {activeGame ? activeGame : 'None'}
               </span>
             </div>
-            <div style={{ display: 'flex', justify: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>License:</span>
               <span style={{ color: '#22c55e', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <ShieldCheck size={16} /> MIT Open Source
