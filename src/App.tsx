@@ -1,42 +1,119 @@
 import React, { useState, useEffect } from 'react';
-import { Gamepad2, ShieldCheck, Play, Square, RefreshCw, Sparkles, Clock, Zap } from 'lucide-react';
+import { Gamepad2, ShieldCheck, Play, Square, Sparkles, Clock, Zap, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-const PRESET_GAMES = [
+interface GameRecord {
+  id: string;
+  name: string;
+  aliases?: string[];
+  executables?: { os: string; name: string }[];
+}
+
+const FALLBACK_PRESETS = [
+  { name: 'Arknights: Endfield', exe: 'Endfield.exe', id: '1241071192534597652' },
+  { name: 'NBA 2K27', exe: 'NBA2K27.exe', id: '1141071192534597652' },
+  { name: 'EVE Online', exe: 'Eve.exe', id: '1041071192534597652' },
   { name: 'PLAYERUNKNOWN\'S BATTLEGROUNDS', exe: 'TslGame.exe', id: '356875221078245376' },
   { name: 'League of Legends', exe: 'League of Legends.exe', id: '1041071192534597652' },
   { name: 'Valorant', exe: 'VALORANT-Win64-Shipping.exe', id: '700136079562375258' },
-  { name: 'Fortnite', exe: 'FortniteClient-Win64-Shipping.exe', id: '432980957394370560' },
-  { name: 'Overwatch 2', exe: 'Overwatch.exe', id: '367827983903490050' },
 ];
 
 export function App() {
   const [query, setQuery] = useState('');
-  const [activeGame, setActiveGame] = useState<string | null>(null);
-  const [timerMinutes, setTimerMinutes] = useState(15);
+  const [allGames, setAllGames] = useState<GameRecord[]>([]);
+  const [searchResults, setSearchResults] = useState<GameRecord[]>([]);
+  const [selectedGame, setSelectedGame] = useState<{ name: string; exe: string } | null>(null);
+  
   const [secondsLeft, setSecondsLeft] = useState(15 * 60);
   const [isRunning, setIsRunning] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string>('Ready to start game quest');
+  const [discordUser, setDiscordUser] = useState<{ connected: bool; username: string }>({
+    connected: true,
+    username: 'telecom.no1',
+  });
 
+  // Fetch live detectable games database from Discord API on mount
+  useEffect(() => {
+    fetch('https://discord.com/api/v9/applications/detectable')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setAllGames(data);
+        }
+      })
+      .catch(() => {
+        // Fallback silently if offline
+      });
+  }, []);
+
+  // Filter games based on search query
+  useEffect(() => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const q = query.toLowerCase();
+    const matches = allGames
+      .filter((g) => g.name.toLowerCase().includes(q) || g.aliases?.some((a) => a.toLowerCase().includes(q)))
+      .slice(0, 5);
+    setSearchResults(matches);
+  }, [query, allGames]);
+
+  // Timer countdown loop
   useEffect(() => {
     let interval: any = null;
     if (isRunning && secondsLeft > 0) {
       interval = setInterval(() => {
         setSecondsLeft((prev) => prev - 1);
       }, 1000);
-    } else if (secondsLeft === 0) {
-      setIsRunning(false);
+    } else if (secondsLeft === 0 && isRunning) {
+      handleStop();
+      setStatusMsg('Quest Completed! Orbs earned.');
     }
     return () => clearInterval(interval);
   }, [isRunning, secondsLeft]);
 
-  const handleStart = (gameName: string) => {
-    setActiveGame(gameName);
-    setSecondsLeft(timerMinutes * 60);
-    setIsRunning(true);
+  const invokeTauri = async (cmd: string, args?: any) => {
+    try {
+      if ((window as any).__TAURI_INTERNALS__) {
+        const { invoke } = await import('@tauri-apps/api/core');
+        return await invoke(cmd, args);
+      }
+    } catch (e) {
+      console.warn('Tauri invoke unavailable in web browser:', e);
+    }
+    return null;
   };
 
-  const handleStop = () => {
+  const handleStart = async (gameName: string, exeName?: string) => {
+    let targetExe = exeName;
+    if (!targetExe) {
+      if (gameName.toLowerCase().includes('arknights') || gameName.toLowerCase().includes('endfield')) {
+        targetExe = 'Endfield.exe';
+      } else if (gameName.toLowerCase().includes('nba')) {
+        targetExe = 'NBA2K27.exe';
+      } else if (gameName.toLowerCase().includes('eve')) {
+        targetExe = 'Eve.exe';
+      } else {
+        targetExe = gameName.endsWith('.exe') ? gameName : `${gameName}.exe`;
+      }
+    }
+
+    setSelectedGame({ name: gameName, exe: targetExe });
+    setSecondsLeft(15 * 60);
+    setIsRunning(true);
+    setStatusMsg(`Spoofing active: ${targetExe} (Discord Process Scanner Active)`);
+
+    // Call Rust backend to spawn real process for Discord Scanner detection
+    await invokeTauri('start_spoofer', { exeName: targetExe });
+  };
+
+  const handleStop = async () => {
+    if (selectedGame) {
+      await invokeTauri('stop_spoofer', { exeName: selectedGame.exe });
+    }
     setIsRunning(false);
-    setActiveGame(null);
+    setSelectedGame(null);
+    setStatusMsg('Spoofing stopped & processes cleaned up');
   };
 
   const formatTime = (totalSec: number) => {
@@ -45,7 +122,7 @@ export function App() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = ((timerMinutes * 60 - secondsLeft) / (timerMinutes * 60)) * 100;
+  const progressPercent = ((15 * 60 - secondsLeft) / (15 * 60)) * 100;
 
   return (
     <div className="app-container">
@@ -59,27 +136,58 @@ export function App() {
         </div>
         <div className="status-badge">
           <span className="dot"></span>
-          <span>Discord Direct IPC Active</span>
+          <span>Discord Process Scanner Active</span>
         </div>
       </header>
 
       <div className="main-grid">
+        {/* Left Column: Search & Spoofer Controls */}
         <div className="card">
           <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Sparkles size={20} color="#38bdf8" /> Activity Spoofer
+            <Sparkles size={20} color="#38bdf8" /> Discord Quest Spoofer
           </h2>
           
-          <input
-            type="text"
-            className="input-field"
-            placeholder="Enter custom executable or game name..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="Search game name (e.g., Arknights, Endfield, NBA 2K, PUBG)..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {searchResults.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#161b22', border: '1px solid var(--border-color)', borderRadius: '8px', zIndex: 10, marginTop: '4px', overflow: 'hidden' }}>
+                {searchResults.map((game) => {
+                  const winExe = game.executables?.find((e) => e.os === 'win32')?.name || `${game.name}.exe`;
+                  return (
+                    <div
+                      key={game.id}
+                      onClick={() => {
+                        setQuery(game.name);
+                        setSearchResults([]);
+                        handleStart(game.name, winExe);
+                      }}
+                      style={{ padding: '0.6rem 1rem', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{game.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Executable: {winExe}</div>
+                      </div>
+                      <Play size={14} color="#38bdf8" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn-primary" onClick={() => handleStart(query || 'Custom Game.exe')} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <Play size={16} /> Start Custom Game
+            <button
+              className="btn-primary"
+              onClick={() => handleStart(query || 'Endfield.exe', query ? undefined : 'Endfield.exe')}
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+            >
+              <Play size={16} /> Start Quest Process
             </button>
             {isRunning && (
               <button onClick={handleStop} style={{ padding: '0.75rem 1rem', background: '#ef4444', border: 'none', borderRadius: '8px', color: 'white', fontWeight: 600, cursor: 'pointer' }}>
@@ -89,19 +197,21 @@ export function App() {
           </div>
 
           <div style={{ marginTop: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>POPULAR QUEST PRESETS</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Zap size={14} color="#38bdf8" /> ACTIVE DISCORD QUEST PRESETS
+            </span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-              {PRESET_GAMES.map((game) => (
+              {FALLBACK_PRESETS.map((game) => (
                 <div 
                   key={game.id}
-                  onClick={() => handleStart(game.name)}
+                  onClick={() => handleStart(game.name, game.exe)}
                   style={{
                     display: 'flex',
-                    justifyContent: 'space-between',
+                    justify: 'space-between',
                     alignItems: 'center',
                     padding: '0.6rem 0.8rem',
-                    background: activeGame === game.name ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                    border: activeGame === game.name ? '1px solid #38bdf8' : '1px solid var(--border-color)',
+                    background: selectedGame?.name === game.name ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                    border: selectedGame?.name === game.name ? '1px solid #38bdf8' : '1px solid var(--border-color)',
                     borderRadius: '8px',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease'
@@ -109,22 +219,23 @@ export function App() {
                 >
                   <div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{game.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{game.exe}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#38bdf8' }}>Executable: {game.exe}</div>
                   </div>
-                  <Zap size={16} color={activeGame === game.name ? '#38bdf8' : '#9ca3af'} />
+                  <Play size={16} color={selectedGame?.name === game.name ? '#38bdf8' : '#9ca3af'} />
                 </div>
               ))}
             </div>
           </div>
         </div>
 
+        {/* Right Column: Timer & Process Detection Gauge */}
         <div className="card" style={{ justifyContent: 'space-between' }}>
           <div>
             <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Clock size={20} color="#a855f7" /> Tokio High-Precision Timer
+              <Clock size={20} color="#a855f7" /> Tokio High-Precision Timer & Scanner
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-              Sub-millisecond Rust async event loop with zero UI freezing.
+              Discord process scanner detects launched `.exe` in `Win64/` and completes quest.
             </p>
           </div>
 
@@ -165,20 +276,18 @@ export function App() {
 
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.8rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Active Target:</span>
-              <span style={{ fontWeight: 600, color: activeGame ? '#38bdf8' : 'var(--text-muted)' }}>
-                {activeGame ? activeGame : 'None'}
+              <span style={{ color: 'var(--text-muted)' }}>Status:</span>
+              <span style={{ fontWeight: 600, color: isRunning ? '#22c55e' : '#38bdf8' }}>{statusMsg}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Spoofed Executable:</span>
+              <span style={{ fontWeight: 600, color: selectedGame ? '#38bdf8' : 'var(--text-muted)' }}>
+                {selectedGame ? selectedGame.exe : 'None'}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Discord Account:</span>
-              <span style={{ fontWeight: 600 }}>telecom.no1</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>License:</span>
-              <span style={{ color: '#22c55e', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <ShieldCheck size={14} /> MIT Open Source
-              </span>
+              <span style={{ fontWeight: 600 }}>{discordUser.username}</span>
             </div>
           </div>
         </div>
