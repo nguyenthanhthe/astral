@@ -1,0 +1,21 @@
+# Node dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist/
+dist-isolation/
+src-tauri/target/
+
+# IDE / OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Environment variables
+.env
+.env.local
