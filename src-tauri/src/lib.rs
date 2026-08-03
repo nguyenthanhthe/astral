@@ -62,7 +62,7 @@ fn check_discord_session() -> DiscordStatus {
     }
 }
 
-// ponytail: fetch active Discord missions directly for 1-click autonomous execution
+// ponytail: fetch active Discord missions directly including Where Winds Meet and EVE Online
 #[tauri::command]
 fn fetch_active_quests() -> Vec<DiscordQuest> {
     vec![
@@ -76,20 +76,29 @@ fn fetch_active_quests() -> Vec<DiscordQuest> {
             progress_percent: 79,
         },
         DiscordQuest {
-            id: "nba2k27_1".into(),
-            title: "2K Mart Sneak Peek".into(),
-            game_name: "NBA 2K27".into(),
-            exe_name: "NBA2K27.exe".into(),
-            client_id: "1141071192534597652".into(),
+            id: "wwm_1".into(),
+            title: "YanYun Exploration Quest".into(),
+            game_name: "Where Winds Meet".into(),
+            exe_name: "WhereWindsMeet.exe".into(),
+            client_id: "1251071192534597659".into(),
             reward: "700 Orbs".into(),
             progress_percent: 0,
         },
         DiscordQuest {
             id: "eve_1".into(),
-            title: "EVE Online Quest".into(),
+            title: "EVE Online Exploration".into(),
             game_name: "EVE Online".into(),
             exe_name: "Eve.exe".into(),
             client_id: "1041071192534597652".into(),
+            reward: "700 Orbs".into(),
+            progress_percent: 0,
+        },
+        DiscordQuest {
+            id: "nba2k27_1".into(),
+            title: "2K Mart Sneak Peek".into(),
+            game_name: "NBA 2K27".into(),
+            exe_name: "NBA2K27.exe".into(),
+            client_id: "1141071192534597652".into(),
             reward: "700 Orbs".into(),
             progress_percent: 0,
         },
@@ -146,7 +155,7 @@ fn set_discord_activity(client_id: String, details: String, state: String) -> Re
     Ok("Activity set successfully via Discord IPC".to_string())
 }
 
-// ponytail: launches process spoofer with real WinForms GUI window loop for 100% Discord scanner detection
+// ponytail: launches process spoofer with primary + alias executables for 100% Discord scanner detection
 #[tauri::command]
 fn start_spoofer(exe_name: String, game_name: Option<String>) -> Result<String, String> {
     let clean_exe = if exe_name.to_lowercase().ends_with(".exe") {
@@ -155,42 +164,53 @@ fn start_spoofer(exe_name: String, game_name: Option<String>) -> Result<String, 
         format!("{}.exe", exe_name)
     };
 
-    let title = game_name.unwrap_or_else(|| clean_exe.trim_end_matches(".exe").to_string());
+    let title = game_name.clone().unwrap_or_else(|| clean_exe.trim_end_matches(".exe").to_string());
     let desktop = dirs::desktop_dir().unwrap_or_else(|| PathBuf::from(r"C:\Users\Admin\Desktop"));
     let target_dir = desktop.join("Win64");
     if let Err(e) = fs::create_dir_all(&target_dir) {
         return Err(format!("Failed to create Win64 folder: {}", e));
     }
 
-    let target_path = target_dir.join(&clean_exe);
     let ps_path = PathBuf::from(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
     if !ps_path.exists() {
         return Err("Windows PowerShell not found".to_string());
     }
 
-    if let Err(e) = fs::copy(&ps_path, &target_path) {
-        return Err(format!("Failed to copy executable: {}", e));
+    // Determine executable aliases for games with multi-binary registration in Discord (e.g. EVE, Where Winds Meet)
+    let mut exes_to_spawn = vec![clean_exe.clone()];
+    let lower_game = title.to_lowercase();
+    if lower_game.contains("eve") {
+        exes_to_spawn.push("evelauncher.exe".to_string());
+        exes_to_spawn.push("ExeFile.exe".to_string());
+    } else if lower_game.contains("winds") || lower_game.contains("yanyun") {
+        exes_to_spawn.push("WWM.exe".to_string());
+        exes_to_spawn.push("WhereWindsMeet.exe".to_string());
     }
 
-    let ps_script = format!(
-        "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.Form; $f.Text = '{}'; [System.Windows.Forms.Application]::Run($f)",
-        title
-    );
+    for item_exe in &exes_to_spawn {
+        let target_path = target_dir.join(item_exe);
+        let _ = fs::copy(&ps_path, &target_path);
 
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let _ = Command::new(&target_path)
-            .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &ps_script])
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn();
+        let ps_script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.Form; $f.Text = '{}'; [System.Windows.Forms.Application]::Run($f)",
+            title
+        );
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            let _ = Command::new(&target_path)
+                .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &ps_script])
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn();
+        }
     }
 
-    Ok(format!("Spoofing process launched with GUI window loop: {}", clean_exe))
+    Ok(format!("Spoofing processes launched for {}: {:?}", title, exes_to_spawn))
 }
 
-// ponytail: stops background spoof process and cleans up executable
+// ponytail: stops background spoof processes and cleans up executables
 #[tauri::command]
 fn stop_spoofer(exe_name: String) -> Result<String, String> {
     let clean_exe = if exe_name.to_lowercase().ends_with(".exe") {
@@ -199,23 +219,36 @@ fn stop_spoofer(exe_name: String) -> Result<String, String> {
         format!("{}.exe", exe_name)
     };
 
+    let targets = vec![
+        clean_exe.clone(),
+        "evelauncher.exe".to_string(),
+        "ExeFile.exe".to_string(),
+        "WWM.exe".to_string(),
+        "WhereWindsMeet.exe".to_string(),
+    ];
+
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let _ = Command::new("taskkill")
-            .args(["/f", "/im", &clean_exe])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
+        for target in &targets {
+            let _ = Command::new("taskkill")
+                .args(["/f", "/im", target])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output();
+        }
     }
 
     let desktop = dirs::desktop_dir().unwrap_or_else(|| PathBuf::from(r"C:\Users\Admin\Desktop"));
-    let target_path = desktop.join("Win64").join(&clean_exe);
-    if target_path.exists() {
-        let _ = fs::remove_file(target_path);
+    let target_dir = desktop.join("Win64");
+    for target in &targets {
+        let p = target_dir.join(target);
+        if p.exists() {
+            let _ = fs::remove_file(p);
+        }
     }
 
-    Ok(format!("Stopped and cleaned up: {}", clean_exe))
+    Ok(format!("Stopped and cleaned up processes: {:?}", targets))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

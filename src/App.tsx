@@ -31,6 +31,15 @@ const DEFAULT_QUESTS: DiscordQuest[] = [
     progress_percent: 0,
   },
   {
+    id: 'wwm_1',
+    title: 'YanYun Exploration Quest',
+    game_name: 'Where Winds Meet',
+    exe_name: 'WhereWindsMeet.exe',
+    client_id: '1251071192534597659',
+    reward: '700 Orbs',
+    progress_percent: 0,
+  },
+  {
     id: 'eve_1',
     title: 'EVE Online Quest',
     game_name: 'EVE Online',
