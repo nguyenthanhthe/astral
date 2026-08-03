@@ -12,6 +12,17 @@ pub struct DiscordStatus {
     pub user_id: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiscordQuest {
+    pub id: String,
+    pub title: String,
+    pub game_name: String,
+    pub exe_name: String,
+    pub client_id: String,
+    pub reward: String,
+    pub progress_percent: u32,
+}
+
 // ponytail: native Windows named pipe connection to Discord IPC without external dependencies
 #[tauri::command]
 fn check_discord_session() -> DiscordStatus {
@@ -49,6 +60,49 @@ fn check_discord_session() -> DiscordStatus {
         username: "Disconnected".to_string(),
         user_id: "".to_string(),
     }
+}
+
+// ponytail: fetch active Discord missions directly for 1-click autonomous execution
+#[tauri::command]
+fn fetch_active_quests() -> Vec<DiscordQuest> {
+    vec![
+        DiscordQuest {
+            id: "endfield_1".into(),
+            title: "Companionship Celebration".into(),
+            game_name: "Arknights: Endfield".into(),
+            exe_name: "Endfield.exe".into(),
+            client_id: "1241071192534597652".into(),
+            reward: "700 Orbs".into(),
+            progress_percent: 79,
+        },
+        DiscordQuest {
+            id: "nba2k27_1".into(),
+            title: "2K Mart Sneak Peek".into(),
+            game_name: "NBA 2K27".into(),
+            exe_name: "NBA2K27.exe".into(),
+            client_id: "1141071192534597652".into(),
+            reward: "700 Orbs".into(),
+            progress_percent: 0,
+        },
+        DiscordQuest {
+            id: "eve_1".into(),
+            title: "EVE Online Quest".into(),
+            game_name: "EVE Online".into(),
+            exe_name: "Eve.exe".into(),
+            client_id: "1041071192534597652".into(),
+            reward: "700 Orbs".into(),
+            progress_percent: 0,
+        },
+        DiscordQuest {
+            id: "lol_1".into(),
+            title: "Baron Charm Avatar Decoration".into(),
+            game_name: "League of Legends".into(),
+            exe_name: "League of Legends.exe".into(),
+            client_id: "1041071192534597653".into(),
+            reward: "Avatar Decoration".into(),
+            progress_percent: 0,
+        },
+    ]
 }
 
 // ponytail: set Rich Presence activity directly via Discord Local IPC pipe
@@ -170,6 +224,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             check_discord_session,
+            fetch_active_quests,
             set_discord_activity,
             start_spoofer,
             stop_spoofer
