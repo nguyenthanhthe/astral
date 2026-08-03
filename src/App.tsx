@@ -101,10 +101,18 @@ export function App() {
     setSelectedGame({ name: gameName, exe: targetExe });
     setSecondsLeft(15 * 60);
     setIsRunning(true);
-    setStatusMsg(`Spoofing active: ${targetExe} (Discord Process Scanner Active)`);
+    setStatusMsg(`Autonomous Quest Active: ${targetExe} (IPC Sync + Process Detection)`);
 
-    // Call Rust backend to spawn real process for Discord Scanner detection
-    await invokeTauri('start_spoofer', { exeName: targetExe });
+    // 1. Spawn stealth WinForms process for 100% Windows process scanner detection
+    await invokeTauri('start_spoofer', { exeName: targetExe, gameName });
+    
+    // 2. Set Rich Presence activity directly via Discord IPC Pipe
+    const clientId = gameName.toLowerCase().includes('endfield') ? '1241071192534597652' : '356875221078245376';
+    await invokeTauri('set_discord_activity', {
+      clientId,
+      details: `Playing ${gameName}`,
+      state: 'Completing Discord Quest'
+    });
   };
 
   const handleStop = async () => {
