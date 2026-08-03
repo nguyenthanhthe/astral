@@ -98,6 +98,23 @@ export function App() {
     });
   }, []);
 
+  // Rust backend game & quest search query hook
+  useEffect(() => {
+    if (query.trim()) {
+      invokeTauri('search_discord_games', { query }).then((res: any) => {
+        if (res && Array.isArray(res)) {
+          setQuests(res);
+        }
+      });
+    } else {
+      invokeTauri('fetch_active_quests').then((res: any) => {
+        if (res && Array.isArray(res)) {
+          setQuests(res);
+        }
+      });
+    }
+  }, [query]);
+
   // Timer countdown loop
   useEffect(() => {
     let interval: any = null;
@@ -234,9 +251,7 @@ export function App() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.25rem' }}>
-            {quests
-              .filter((q) => q.game_name.toLowerCase().includes(query.toLowerCase()) || q.title.toLowerCase().includes(query.toLowerCase()))
-              .map((q) => {
+            {quests.map((q) => {
               const isCurrent = selectedQuest?.id === q.id;
               return (
                 <div

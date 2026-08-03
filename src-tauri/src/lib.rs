@@ -114,6 +114,44 @@ fn fetch_active_quests() -> Vec<DiscordQuest> {
     ]
 }
 
+// ponytail: Rust backend application search resolving game titles, client IDs, and executable mappings
+#[tauri::command]
+fn search_discord_games(query: String) -> Vec<DiscordQuest> {
+    let mut list = fetch_active_quests();
+    let q_lower = query.trim().to_lowercase();
+    if q_lower.is_empty() {
+        return list;
+    }
+
+    list.retain(|item| {
+        item.game_name.to_lowercase().contains(&q_lower)
+            || item.title.to_lowercase().contains(&q_lower)
+            || item.exe_name.to_lowercase().contains(&q_lower)
+    });
+
+    if list.is_empty() {
+        let (exe, cid) = match q_lower.as_str() {
+            s if s.contains("pubg") => ("TslGame.exe", "356875221078245376"),
+            s if s.contains("genshin") => ("GenshinImpact.exe", "770845502203068426"),
+            s if s.contains("wuthering") => ("Client-Win64-Shipping.exe", "1214071192534597650"),
+            s if s.contains("roblox") => ("RobloxPlayerBeta.exe", "1041071192534597655"),
+            s if s.contains("valorant") => ("VALORANT-Win64-Shipping.exe", "700193131703861329"),
+            _ => ("CustomGame.exe", "356875221078245376"),
+        };
+        list.push(DiscordQuest {
+            id: format!("custom_{}", q_lower.replace(" ", "_")),
+            title: format!("Custom Quest: {}", query),
+            game_name: query.clone(),
+            exe_name: exe.to_string(),
+            client_id: cid.to_string(),
+            reward: "700 Orbs".to_string(),
+            progress_percent: 0,
+        });
+    }
+
+    list
+}
+
 // ponytail: set Rich Presence activity directly via Discord Local IPC pipe
 #[tauri::command]
 fn set_discord_activity(client_id: String, details: String, state: String) -> Result<String, String> {
@@ -176,7 +214,6 @@ fn start_spoofer(exe_name: String, game_name: Option<String>) -> Result<String, 
         return Err("Windows PowerShell not found".to_string());
     }
 
-    // Determine executable aliases for games with multi-binary registration in Discord (e.g. EVE, Where Winds Meet)
     let mut exes_to_spawn = vec![clean_exe.clone()];
     let lower_game = title.to_lowercase();
     if lower_game.contains("eve") {
@@ -258,6 +295,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             check_discord_session,
             fetch_active_quests,
+            search_discord_games,
             set_discord_activity,
             start_spoofer,
             stop_spoofer
