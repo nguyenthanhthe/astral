@@ -26,7 +26,7 @@ export function App() {
   const [secondsLeft, setSecondsLeft] = useState(15 * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string>('Ready to start game quest');
-  const [discordUser, setDiscordUser] = useState<{ connected: bool; username: string }>({
+  const [discordUser, setDiscordUser] = useState<{ connected: boolean; username: string }>({
     connected: true,
     username: 'telecom.no1',
   });
@@ -207,7 +207,7 @@ export function App() {
                   onClick={() => handleStart(game.name, game.exe)}
                   style={{
                     display: 'flex',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '0.6rem 0.8rem',
                     background: selectedGame?.name === game.name ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
