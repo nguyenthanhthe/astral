@@ -84,8 +84,9 @@ export function App() {
     return null;
   };
 
-  // Fetch active quests & session on mount
+  // Fetch active quests & session on mount and trim unmapped RAM WorkingSet
   useEffect(() => {
+    invokeTauri('optimize_ram');
     invokeTauri('fetch_active_quests').then((res) => {
       if (res && Array.isArray(res)) {
         setQuests(res);
