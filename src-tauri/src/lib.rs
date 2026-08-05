@@ -47,9 +47,34 @@ fn optimize_ram() -> Result<String, String> {
     Ok("Memory WorkingSet trimmed to minimum footprint".to_string())
 }
 
+// ponytail: background pre-fetcher for 23,888 Discord games database (0ms instant search)
+fn preload_detectable_cache() {
+    std::thread::spawn(|| {
+        let mut guard = DETECTABLE_CACHE.lock().unwrap();
+        if guard.is_none() {
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                let output = Command::new("powershell")
+                    .args(["-NoProfile", "-Command", "Invoke-RestMethod -Uri 'https://discord.com/api/v9/applications/detectable' | ConvertTo-Json -Depth 4"])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .output();
+
+                if let Ok(out) = output {
+                    if let Ok(json_data) = serde_json::from_slice::<Vec<serde_json::Value>>(&out.stdout) {
+                        *guard = Some(json_data);
+                    }
+                }
+            }
+        }
+    });
+}
+
 // ponytail: native Windows named pipe connection to Discord IPC without external dependencies
 #[tauri::command]
 fn check_discord_session() -> DiscordStatus {
+    preload_detectable_cache();
     let pipe_path = r"\\.\pipe\discord-ipc-0";
     if let Ok(mut file) = OpenOptions::new().read(true).write(true).open(pipe_path) {
         let payload = r#"{"v":1,"client_id":"356875221078245376"}"#;
@@ -138,101 +163,79 @@ fn fetch_active_quests() -> Vec<DiscordQuest> {
     ]
 }
 
-// ponytail: async background task search to NEVER block the main UI thread
+// ponytail: instant search (0ms delay) from in-memory DETECTABLE_CACHE
 #[tauri::command]
-async fn search_discord_games(query: String) -> Vec<DiscordQuest> {
-    tokio::task::spawn_blocking(move || {
-        let mut list = fetch_active_quests();
-        let q_lower = query.trim().to_lowercase();
-        if q_lower.is_empty() {
-            return list;
-        }
+fn search_discord_games(query: String) -> Vec<DiscordQuest> {
+    let mut list = fetch_active_quests();
+    let q_lower = query.trim().to_lowercase();
+    if q_lower.is_empty() {
+        return list;
+    }
 
-        list.retain(|item| {
-            item.game_name.to_lowercase().contains(&q_lower)
-                || item.title.to_lowercase().contains(&q_lower)
-                || item.exe_name.to_lowercase().contains(&q_lower)
-        });
+    list.retain(|item| {
+        item.game_name.to_lowercase().contains(&q_lower)
+            || item.title.to_lowercase().contains(&q_lower)
+            || item.exe_name.to_lowercase().contains(&q_lower)
+    });
 
-        let mut cache_guard = DETECTABLE_CACHE.lock().unwrap();
-        if cache_guard.is_none() {
-            #[cfg(target_os = "windows")]
-            {
-                use std::os::windows::process::CommandExt;
-                const CREATE_NO_WINDOW: u32 = 0x08000000;
-                let output = Command::new("powershell")
-                    .args(["-NoProfile", "-Command", "Invoke-RestMethod -Uri 'https://discord.com/api/v9/applications/detectable' | ConvertTo-Json -Depth 4"])
-                    .creation_flags(CREATE_NO_WINDOW)
-                    .output();
+    let cache_guard = DETECTABLE_CACHE.lock().unwrap();
+    if let Some(ref games) = *cache_guard {
+        for g in games {
+            if let Some(name) = g.get("name").and_then(|n| n.as_str()) {
+                if name.to_lowercase().contains(&q_lower) {
+                    let client_id = g.get("id").and_then(|i| i.as_str()).unwrap_or("356875221078245376").to_string();
+                    let mut exe_name = format!("{}.exe", name.replace(":", "").replace(" ", ""));
 
-                if let Ok(out) = output {
-                    if let Ok(json_data) = serde_json::from_slice::<Vec<serde_json::Value>>(&out.stdout) {
-                        *cache_guard = Some(json_data);
-                    }
-                }
-            }
-        }
-
-        if let Some(ref games) = *cache_guard {
-            for g in games {
-                if let Some(name) = g.get("name").and_then(|n| n.as_str()) {
-                    if name.to_lowercase().contains(&q_lower) {
-                        let client_id = g.get("id").and_then(|i| i.as_str()).unwrap_or("356875221078245376").to_string();
-                        let mut exe_name = format!("{}.exe", name.replace(":", "").replace(" ", ""));
-
-                        if let Some(execs) = g.get("executables").and_then(|e| e.as_array()) {
-                            for ex in execs {
-                                if let Some(ex_name) = ex.get("name").and_then(|n| n.as_str()) {
-                                    if ex_name.ends_with(".exe") {
-                                        let clean_ex = ex_name.split('/').last().unwrap_or(ex_name);
-                                        exe_name = clean_ex.to_string();
-                                        break;
-                                    }
+                    if let Some(execs) = g.get("executables").and_then(|e| e.as_array()) {
+                        for ex in execs {
+                            if let Some(ex_name) = ex.get("name").and_then(|n| n.as_str()) {
+                                if ex_name.ends_with(".exe") {
+                                    let clean_ex = ex_name.split('/').last().unwrap_or(ex_name);
+                                    exe_name = clean_ex.to_string();
+                                    break;
                                 }
                             }
                         }
+                    }
 
-                        if !list.iter().any(|item| item.game_name.eq_ignore_ascii_case(name)) {
-                            list.push(DiscordQuest {
-                                id: format!("disc_{}", client_id),
-                                title: format!("Discord Verified: {}", name),
-                                game_name: name.to_string(),
-                                exe_name,
-                                client_id,
-                                reward: "700 Orbs".to_string(),
-                                progress_percent: 0,
-                            });
-                        }
+                    if !list.iter().any(|item| item.game_name.eq_ignore_ascii_case(name)) {
+                        list.push(DiscordQuest {
+                            id: format!("disc_{}", client_id),
+                            title: format!("Discord Verified: {}", name),
+                            game_name: name.to_string(),
+                            exe_name,
+                            client_id,
+                            reward: "700 Orbs".to_string(),
+                            progress_percent: 0,
+                        });
+                    }
 
-                        if list.len() >= 25 {
-                            break;
-                        }
+                    if list.len() >= 25 {
+                        break;
                     }
                 }
             }
         }
+    }
 
-        if list.is_empty() {
-            list.push(DiscordQuest {
-                id: format!("custom_{}", q_lower.replace(" ", "_")),
-                title: format!("Custom Quest: {}", query),
-                game_name: query.clone(),
-                exe_name: format!("{}.exe", query.replace(" ", "")),
-                client_id: "356875221078245376".to_string(),
-                reward: "700 Orbs".to_string(),
-                progress_percent: 0,
-            });
-        }
+    if list.is_empty() {
+        list.push(DiscordQuest {
+            id: format!("custom_{}", q_lower.replace(" ", "_")),
+            title: format!("Custom Quest: {}", query),
+            game_name: query.clone(),
+            exe_name: format!("{}.exe", query.replace(" ", "")),
+            client_id: "356875221078245376".to_string(),
+            reward: "700 Orbs".to_string(),
+            progress_percent: 0,
+        });
+    }
 
-        list
-    })
-    .await
-    .unwrap_or_default()
+    list
 }
 
-// ponytail: spoof non-exe quests (Console PS5/Xbox & Voice Stream quests) directly via IPC RPC frames
+// ponytail: spoof non-exe quests with dynamic end timestamp countdown for native Discord UI progress bar
 #[tauri::command]
-fn spoof_non_exe_quest(quest_type: String, client_id: String, game_name: String) -> Result<String, String> {
+fn spoof_non_exe_quest(quest_type: String, client_id: String, game_name: String, duration_seconds: Option<u64>) -> Result<String, String> {
     let pipe_path = r"\\.\pipe\discord-ipc-0";
     let mut file = OpenOptions::new()
         .read(true)
@@ -254,18 +257,22 @@ fn spoof_non_exe_quest(quest_type: String, client_id: String, game_name: String)
     file.read_exact(&mut buf).map_err(|e| format!("Payload read failed: {}", e))?;
 
     let start_ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let dur = duration_seconds.unwrap_or(900);
+    let end_ts = start_ts + dur;
+
     let (details, state) = if quest_type.contains("console") || game_name.contains("Console") {
         ("Playing on PlayStation 5 / Xbox", "Completing Console Quest")
     } else {
-        ("Streaming Game to Channel", "Completing Stream Quest (15m)")
+        ("Streaming Game to Channel", "Completing Stream Quest")
     };
 
     let act_payload = format!(
-        r#"{{"cmd":"SET_ACTIVITY","args":{{"pid":{},"activity":{{"details":"{}","state":"{}","timestamps":{{"start":{}}}}}}},"nonce":"astral_non_exe"}}"#,
+        r#"{{"cmd":"SET_ACTIVITY","args":{{"pid":{},"activity":{{"details":"{}","state":"{}","timestamps":{{"start":{},"end":{}}}}}}},"nonce":"astral_non_exe"}}"#,
         std::process::id(),
         details,
         state,
-        start_ts
+        start_ts,
+        end_ts
     );
 
     let mut act_msg = Vec::new();
@@ -277,9 +284,9 @@ fn spoof_non_exe_quest(quest_type: String, client_id: String, game_name: String)
     Ok(format!("Non-EXE Quest spoofed successfully: {}", game_name))
 }
 
-// ponytail: set Rich Presence activity directly via Discord Local IPC pipe
+// ponytail: set Rich Presence activity directly with start and end timestamps for live Discord UI progress bar
 #[tauri::command]
-fn set_discord_activity(client_id: String, details: String, state: String) -> Result<String, String> {
+fn set_discord_activity(client_id: String, details: String, state: String, duration_seconds: Option<u64>) -> Result<String, String> {
     let pipe_path = r"\\.\pipe\discord-ipc-0";
     let mut file = OpenOptions::new()
         .read(true)
@@ -301,12 +308,16 @@ fn set_discord_activity(client_id: String, details: String, state: String) -> Re
     file.read_exact(&mut buf).map_err(|e| format!("Payload read failed: {}", e))?;
 
     let start_ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let dur = duration_seconds.unwrap_or(900);
+    let end_ts = start_ts + dur;
+
     let act_payload = format!(
-        r#"{{"cmd":"SET_ACTIVITY","args":{{"pid":{},"activity":{{"details":"{}","state":"{}","timestamps":{{"start":{}}}}}}},"nonce":"astral_1"}}"#,
+        r#"{{"cmd":"SET_ACTIVITY","args":{{"pid":{},"activity":{{"details":"{}","state":"{}","timestamps":{{"start":{},"end":{}}}}}}},"nonce":"astral_1"}}"#,
         std::process::id(),
         details,
         state,
-        start_ts
+        start_ts,
+        end_ts
     );
 
     let mut act_msg = Vec::new();

@@ -134,18 +134,30 @@ export function App() {
     return () => clearInterval(interval);
   }, [isRunning, secondsLeft]);
 
+  const [initialProgress, setInitialProgress] = useState(0);
+  const [totalRequiredSec, setTotalRequiredSec] = useState(15 * 60);
+
   const handleStartQuest = async (quest: DiscordQuest) => {
     setSelectedQuest(quest);
-    setSecondsLeft(15 * 60);
+    
+    // Determine target duration: 30s for video quests, 900s for game quests
+    const reqSec = quest.exe_name.toLowerCase().includes('video') ? 30 : 15 * 60;
+    const startProg = quest.progress_percent || 0;
+    const remSec = Math.max(1, Math.round(reqSec * (1 - startProg / 100)));
+
+    setInitialProgress(startProg);
+    setTotalRequiredSec(reqSec);
+    setSecondsLeft(remSec);
     setIsRunning(true);
-    setStatusMsg(`Autonomous Quest Active: ${quest.game_name}`);
+    setStatusMsg(`Autonomous Quest Active: ${quest.game_name} (${startProg}% ➔ 100%)`);
 
     if (quest.exe_name.startsWith('[')) {
       // Non-EXE Quest (Console PS5/Xbox or Voice Stream)
       await invokeTauri('spoof_non_exe_quest', {
         questType: quest.exe_name,
         clientId: quest.client_id,
-        gameName: quest.game_name
+        gameName: quest.game_name,
+        durationSeconds: remSec
       });
     } else {
       // Windows Desktop Game (.exe Spoofer)
@@ -153,7 +165,8 @@ export function App() {
       await invokeTauri('set_discord_activity', {
         clientId: quest.client_id,
         details: `Completing Quest: ${quest.title}`,
-        state: `Earning ${quest.reward}`
+        state: `Earning ${quest.reward}`,
+        durationSeconds: remSec
       });
     }
   };
@@ -180,7 +193,8 @@ export function App() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = ((15 * 60 - secondsLeft) / (15 * 60)) * 100;
+  const elapsedSec = totalRequiredSec - secondsLeft;
+  const currentProgress = Math.min(100, Math.round(initialProgress + ((totalRequiredSec - secondsLeft) / totalRequiredSec) * (100 - initialProgress)));
 
   return (
     <div className="app-container">
@@ -296,7 +310,7 @@ export function App() {
                         <Award size={14} /> {q.reward}
                       </span>
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        {isCurrent ? `${Math.round(progressPercent)}% Progress` : `${q.progress_percent}% Saved`}
+                        {isCurrent ? `${Math.round(currentProgress)}% Progress` : `${q.progress_percent}% Saved`}
                       </span>
                     </div>
                     <Play size={18} color={isCurrent ? '#38bdf8' : '#9ca3af'} />
@@ -331,7 +345,7 @@ export function App() {
                   strokeWidth="10" 
                   fill="transparent"
                   strokeDasharray="471"
-                  strokeDashoffset={471 - (471 * progressPercent) / 100}
+                  strokeDashoffset={471 - (471 * currentProgress) / 100}
                   strokeLinecap="round"
                   style={{ transition: 'stroke-dashoffset 0.5s ease' }}
                 />
@@ -344,10 +358,10 @@ export function App() {
               </svg>
               <div style={{ position: 'absolute', textAlign: 'center' }}>
                 <div style={{ fontSize: '2.3rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', background: 'linear-gradient(135deg, #38bdf8, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  {formatTime(secondsLeft)}
+                  {isRunning ? `${currentProgress}%` : `${currentProgress}%`}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: isRunning ? '#22c55e' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  {isRunning ? 'Mission Syncing' : 'Standby'}
+                  {isRunning ? `${formatTime(secondsLeft)} Left` : 'Standby'}
                 </div>
               </div>
             </div>
