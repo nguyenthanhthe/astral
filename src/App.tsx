@@ -99,21 +99,25 @@ export function App() {
     });
   }, []);
 
-  // Rust backend game & quest search query hook
+  // Rust backend game & quest search query hook with 350ms input debouncing
   useEffect(() => {
-    if (query.trim()) {
-      invokeTauri('search_discord_games', { query }).then((res: any) => {
-        if (res && Array.isArray(res)) {
-          setQuests(res);
-        }
-      });
-    } else {
-      invokeTauri('fetch_active_quests').then((res: any) => {
-        if (res && Array.isArray(res)) {
-          setQuests(res);
-        }
-      });
-    }
+    const handler = setTimeout(() => {
+      if (query.trim()) {
+        invokeTauri('search_discord_games', { query }).then((res: any) => {
+          if (res && Array.isArray(res)) {
+            setQuests(res);
+          }
+        });
+      } else {
+        invokeTauri('fetch_active_quests').then((res: any) => {
+          if (res && Array.isArray(res)) {
+            setQuests(res);
+          }
+        });
+      }
+    }, 350);
+
+    return () => clearTimeout(handler);
   }, [query]);
 
   // Timer countdown loop

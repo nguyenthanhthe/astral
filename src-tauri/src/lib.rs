@@ -138,92 +138,96 @@ fn fetch_active_quests() -> Vec<DiscordQuest> {
     ]
 }
 
-// ponytail: search ALL 23,888 Discord official detectable applications dynamically
+// ponytail: async background task search to NEVER block the main UI thread
 #[tauri::command]
-fn search_discord_games(query: String) -> Vec<DiscordQuest> {
-    let mut list = fetch_active_quests();
-    let q_lower = query.trim().to_lowercase();
-    if q_lower.is_empty() {
-        return list;
-    }
+async fn search_discord_games(query: String) -> Vec<DiscordQuest> {
+    tokio::task::spawn_blocking(move || {
+        let mut list = fetch_active_quests();
+        let q_lower = query.trim().to_lowercase();
+        if q_lower.is_empty() {
+            return list;
+        }
 
-    list.retain(|item| {
-        item.game_name.to_lowercase().contains(&q_lower)
-            || item.title.to_lowercase().contains(&q_lower)
-            || item.exe_name.to_lowercase().contains(&q_lower)
-    });
+        list.retain(|item| {
+            item.game_name.to_lowercase().contains(&q_lower)
+                || item.title.to_lowercase().contains(&q_lower)
+                || item.exe_name.to_lowercase().contains(&q_lower)
+        });
 
-    let mut cache_guard = DETECTABLE_CACHE.lock().unwrap();
-    if cache_guard.is_none() {
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            let output = Command::new("powershell")
-                .args(["-NoProfile", "-Command", "Invoke-RestMethod -Uri 'https://discord.com/api/v9/applications/detectable' | ConvertTo-Json -Depth 4"])
-                .creation_flags(CREATE_NO_WINDOW)
-                .output();
+        let mut cache_guard = DETECTABLE_CACHE.lock().unwrap();
+        if cache_guard.is_none() {
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                let output = Command::new("powershell")
+                    .args(["-NoProfile", "-Command", "Invoke-RestMethod -Uri 'https://discord.com/api/v9/applications/detectable' | ConvertTo-Json -Depth 4"])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .output();
 
-            if let Ok(out) = output {
-                if let Ok(json_data) = serde_json::from_slice::<Vec<serde_json::Value>>(&out.stdout) {
-                    *cache_guard = Some(json_data);
+                if let Ok(out) = output {
+                    if let Ok(json_data) = serde_json::from_slice::<Vec<serde_json::Value>>(&out.stdout) {
+                        *cache_guard = Some(json_data);
+                    }
                 }
             }
         }
-    }
 
-    if let Some(ref games) = *cache_guard {
-        for g in games {
-            if let Some(name) = g.get("name").and_then(|n| n.as_str()) {
-                if name.to_lowercase().contains(&q_lower) {
-                    let client_id = g.get("id").and_then(|i| i.as_str()).unwrap_or("356875221078245376").to_string();
-                    let mut exe_name = format!("{}.exe", name.replace(":", "").replace(" ", ""));
+        if let Some(ref games) = *cache_guard {
+            for g in games {
+                if let Some(name) = g.get("name").and_then(|n| n.as_str()) {
+                    if name.to_lowercase().contains(&q_lower) {
+                        let client_id = g.get("id").and_then(|i| i.as_str()).unwrap_or("356875221078245376").to_string();
+                        let mut exe_name = format!("{}.exe", name.replace(":", "").replace(" ", ""));
 
-                    if let Some(execs) = g.get("executables").and_then(|e| e.as_array()) {
-                        for ex in execs {
-                            if let Some(ex_name) = ex.get("name").and_then(|n| n.as_str()) {
-                                if ex_name.ends_with(".exe") {
-                                    let clean_ex = ex_name.split('/').last().unwrap_or(ex_name);
-                                    exe_name = clean_ex.to_string();
-                                    break;
+                        if let Some(execs) = g.get("executables").and_then(|e| e.as_array()) {
+                            for ex in execs {
+                                if let Some(ex_name) = ex.get("name").and_then(|n| n.as_str()) {
+                                    if ex_name.ends_with(".exe") {
+                                        let clean_ex = ex_name.split('/').last().unwrap_or(ex_name);
+                                        exe_name = clean_ex.to_string();
+                                        break;
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if !list.iter().any(|item| item.game_name.eq_ignore_ascii_case(name)) {
-                        list.push(DiscordQuest {
-                            id: format!("disc_{}", client_id),
-                            title: format!("Discord Verified: {}", name),
-                            game_name: name.to_string(),
-                            exe_name,
-                            client_id,
-                            reward: "700 Orbs".to_string(),
-                            progress_percent: 0,
-                        });
-                    }
+                        if !list.iter().any(|item| item.game_name.eq_ignore_ascii_case(name)) {
+                            list.push(DiscordQuest {
+                                id: format!("disc_{}", client_id),
+                                title: format!("Discord Verified: {}", name),
+                                game_name: name.to_string(),
+                                exe_name,
+                                client_id,
+                                reward: "700 Orbs".to_string(),
+                                progress_percent: 0,
+                            });
+                        }
 
-                    if list.len() >= 25 {
-                        break;
+                        if list.len() >= 25 {
+                            break;
+                        }
                     }
                 }
             }
         }
-    }
 
-    if list.is_empty() {
-        list.push(DiscordQuest {
-            id: format!("custom_{}", q_lower.replace(" ", "_")),
-            title: format!("Custom Quest: {}", query),
-            game_name: query.clone(),
-            exe_name: format!("{}.exe", query.replace(" ", "")),
-            client_id: "356875221078245376".to_string(),
-            reward: "700 Orbs".to_string(),
-            progress_percent: 0,
-        });
-    }
+        if list.is_empty() {
+            list.push(DiscordQuest {
+                id: format!("custom_{}", q_lower.replace(" ", "_")),
+                title: format!("Custom Quest: {}", query),
+                game_name: query.clone(),
+                exe_name: format!("{}.exe", query.replace(" ", "")),
+                client_id: "356875221078245376".to_string(),
+                reward: "700 Orbs".to_string(),
+                progress_percent: 0,
+            });
+        }
 
-    list
+        list
+    })
+    .await
+    .unwrap_or_default()
 }
 
 // ponytail: spoof non-exe quests (Console PS5/Xbox & Voice Stream quests) directly via IPC RPC frames
