@@ -62,7 +62,7 @@ fn check_discord_session() -> DiscordStatus {
     }
 }
 
-// ponytail: fetch active Discord missions directly including Where Winds Meet and EVE Online
+// ponytail: fetch active Discord missions directly including Console & Stream quests
 #[tauri::command]
 fn fetch_active_quests() -> Vec<DiscordQuest> {
     vec![
@@ -85,30 +85,30 @@ fn fetch_active_quests() -> Vec<DiscordQuest> {
             progress_percent: 0,
         },
         DiscordQuest {
+            id: "ps5_fortnite_1".into(),
+            title: "PlayStation 5 Console Quest".into(),
+            game_name: "Fortnite (PS5 / Xbox)".into(),
+            exe_name: "[Console Quest]".into(),
+            client_id: "432920532586070016".into(),
+            reward: "700 Orbs".into(),
+            progress_percent: 0,
+        },
+        DiscordQuest {
+            id: "stream_quest_1".into(),
+            title: "Stream to a Friend (15 mins)".into(),
+            game_name: "Voice Channel Stream".into(),
+            exe_name: "[Stream Quest]".into(),
+            client_id: "356875221078245376".into(),
+            reward: "700 Orbs".into(),
+            progress_percent: 0,
+        },
+        DiscordQuest {
             id: "eve_1".into(),
             title: "EVE Online Exploration".into(),
             game_name: "EVE Online".into(),
             exe_name: "Eve.exe".into(),
             client_id: "1041071192534597652".into(),
             reward: "700 Orbs".into(),
-            progress_percent: 0,
-        },
-        DiscordQuest {
-            id: "nba2k27_1".into(),
-            title: "2K Mart Sneak Peek".into(),
-            game_name: "NBA 2K27".into(),
-            exe_name: "NBA2K27.exe".into(),
-            client_id: "1141071192534597652".into(),
-            reward: "700 Orbs".into(),
-            progress_percent: 0,
-        },
-        DiscordQuest {
-            id: "lol_1".into(),
-            title: "Baron Charm Avatar Decoration".into(),
-            game_name: "League of Legends".into(),
-            exe_name: "League of Legends.exe".into(),
-            client_id: "1041071192534597653".into(),
-            reward: "Avatar Decoration".into(),
             progress_percent: 0,
         },
     ]
@@ -135,7 +135,8 @@ fn search_discord_games(query: String) -> Vec<DiscordQuest> {
             s if s.contains("genshin") => ("GenshinImpact.exe", "770845502203068426"),
             s if s.contains("wuthering") => ("Client-Win64-Shipping.exe", "1214071192534597650"),
             s if s.contains("roblox") => ("RobloxPlayerBeta.exe", "1041071192534597655"),
-            s if s.contains("valorant") => ("VALORANT-Win64-Shipping.exe", "700193131703861329"),
+            s if s.contains("ps5") || s.contains("xbox") || s.contains("console") => ("[Console Quest]", "432920532586070016"),
+            s if s.contains("stream") => ("[Stream Quest]", "356875221078245376"),
             _ => ("CustomGame.exe", "356875221078245376"),
         };
         list.push(DiscordQuest {
@@ -150,6 +151,53 @@ fn search_discord_games(query: String) -> Vec<DiscordQuest> {
     }
 
     list
+}
+
+// ponytail: spoof non-exe quests (Console PS5/Xbox & Voice Stream quests) directly via IPC RPC frames
+#[tauri::command]
+fn spoof_non_exe_quest(quest_type: String, client_id: String, game_name: String) -> Result<String, String> {
+    let pipe_path = r"\\.\pipe\discord-ipc-0";
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(pipe_path)
+        .map_err(|e| format!("Failed to open IPC pipe: {}", e))?;
+
+    let hs_payload = format!(r#"{{"v":1,"client_id":"{}"}}"#, client_id);
+    let mut hs_msg = Vec::new();
+    hs_msg.extend_from_slice(&0u32.to_le_bytes());
+    hs_msg.extend_from_slice(&(hs_payload.len() as u32).to_le_bytes());
+    hs_msg.extend_from_slice(hs_payload.as_bytes());
+    file.write_all(&hs_msg).map_err(|e| format!("Handshake failed: {}", e))?;
+
+    let mut header = [0u8; 8];
+    file.read_exact(&mut header).map_err(|e| format!("Header read failed: {}", e))?;
+    let len = u32::from_le_bytes(header[4..8].try_into().unwrap()) as usize;
+    let mut buf = vec![0u8; len];
+    file.read_exact(&mut buf).map_err(|e| format!("Payload read failed: {}", e))?;
+
+    let start_ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let (details, state) = if quest_type.contains("console") || game_name.contains("Console") {
+        ("Playing on PlayStation 5 / Xbox", "Completing Console Quest")
+    } else {
+        ("Streaming Game to Channel", "Completing Stream Quest (15m)")
+    };
+
+    let act_payload = format!(
+        r#"{{"cmd":"SET_ACTIVITY","args":{{"pid":{},"activity":{{"details":"{}","state":"{}","timestamps":{{"start":{}}}}}}},"nonce":"astral_non_exe"}}"#,
+        std::process::id(),
+        details,
+        state,
+        start_ts
+    );
+
+    let mut act_msg = Vec::new();
+    act_msg.extend_from_slice(&1u32.to_le_bytes());
+    act_msg.extend_from_slice(&(act_payload.len() as u32).to_le_bytes());
+    act_msg.extend_from_slice(act_payload.as_bytes());
+    file.write_all(&act_msg).map_err(|e| format!("Set activity failed: {}", e))?;
+
+    Ok(format!("Non-EXE Quest spoofed successfully: {}", game_name))
 }
 
 // ponytail: set Rich Presence activity directly via Discord Local IPC pipe
@@ -296,6 +344,7 @@ pub fn run() {
             check_discord_session,
             fetch_active_quests,
             search_discord_games,
+            spoof_non_exe_quest,
             set_discord_activity,
             start_spoofer,
             stop_spoofer

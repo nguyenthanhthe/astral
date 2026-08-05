@@ -133,17 +133,24 @@ export function App() {
     setSelectedQuest(quest);
     setSecondsLeft(15 * 60);
     setIsRunning(true);
-    setStatusMsg(`Autonomous Quest Active: ${quest.game_name} (${quest.exe_name})`);
+    setStatusMsg(`Autonomous Quest Active: ${quest.game_name}`);
 
-    // 1. Spawn stealth WinForms process stub for 100% Discord process scanner detection
-    await invokeTauri('start_spoofer', { exeName: quest.exe_name, gameName: quest.game_name });
-    
-    // 2. Set Rich Presence activity directly via Discord IPC Pipe
-    await invokeTauri('set_discord_activity', {
-      clientId: quest.client_id,
-      details: `Completing Quest: ${quest.title}`,
-      state: `Earning ${quest.reward}`
-    });
+    if (quest.exe_name.startsWith('[')) {
+      // Non-EXE Quest (Console PS5/Xbox or Voice Stream)
+      await invokeTauri('spoof_non_exe_quest', {
+        questType: quest.exe_name,
+        clientId: quest.client_id,
+        gameName: quest.game_name
+      });
+    } else {
+      // Windows Desktop Game (.exe Spoofer)
+      await invokeTauri('start_spoofer', { exeName: quest.exe_name, gameName: quest.game_name });
+      await invokeTauri('set_discord_activity', {
+        clientId: quest.client_id,
+        details: `Completing Quest: ${quest.title}`,
+        state: `Earning ${quest.reward}`
+      });
+    }
   };
 
   const handleAutoExecuteAll = async () => {
