@@ -239,6 +239,13 @@ async fn refresh_catalog(state: tauri::State<'_, AppState>) -> Result<CatalogSta
     })
 }
 
+/// Query the latest astral GitHub release and report whether the running
+/// build is outdated. Failures (offline, non-200) surface as `UPDATE_CHECK_FAILED`.
+#[tauri::command]
+async fn check_for_update() -> Result<crate::services::update::UpdateInfo, AppError> {
+    crate::services::update::check_for_update().await
+}
+
 // ponytail: session engine command layer (Phase 3). The frontend only
 // starts/stops sessions; every progress update arrives as a `session://` event.
 
@@ -328,6 +335,7 @@ pub fn run() {
             fetch_active_quests,
             search_discord_games,
             refresh_catalog,
+            check_for_update,
             start_session,
             stop_session,
             get_session_status,

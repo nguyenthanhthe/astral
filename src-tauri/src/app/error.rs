@@ -17,6 +17,7 @@ pub const CODE_SESSION_ACTIVE: &str = "SESSION_ACTIVE";
 pub const CODE_QUEST_NOT_FOUND: &str = "QUEST_NOT_FOUND";
 pub const CODE_PLATFORM_UNSUPPORTED: &str = "PLATFORM_UNSUPPORTED";
 pub const CODE_CATALOG_EMPTY: &str = "CATALOG_EMPTY";
+pub const CODE_UPDATE_CHECK_FAILED: &str = "UPDATE_CHECK_FAILED";
 pub const CODE_VALIDATION: &str = "VALIDATION";
 pub const CODE_INTERNAL: &str = "INTERNAL";
 
@@ -27,6 +28,9 @@ pub enum AppError {
     QuestNotFound,
     PlatformUnsupported,
     CatalogEmpty,
+    /// Update-check failures (offline, non-200, bad payload). Detail is
+    /// logged; the serialized message stays user-safe.
+    UpdateCheckFailed(String),
     Validation(String),
     /// Internal failures. The detail string is logged but never surfaced to
     /// the frontend — the serialized `message` is always a safe generic.
@@ -41,6 +45,7 @@ impl AppError {
             AppError::QuestNotFound => CODE_QUEST_NOT_FOUND,
             AppError::PlatformUnsupported => CODE_PLATFORM_UNSUPPORTED,
             AppError::CatalogEmpty => CODE_CATALOG_EMPTY,
+            AppError::UpdateCheckFailed(_) => CODE_UPDATE_CHECK_FAILED,
             AppError::Validation(_) => CODE_VALIDATION,
             AppError::Internal(_) => CODE_INTERNAL,
         }
@@ -57,6 +62,7 @@ impl AppError {
                 "This feature is only available on Windows.".to_string()
             }
             AppError::CatalogEmpty => "The game catalog is empty.".to_string(),
+            AppError::UpdateCheckFailed(_) => "Couldn't check for updates.".to_string(),
             AppError::Validation(msg) => msg.clone(),
             AppError::Internal(_) => "Something went wrong. Please try again.".to_string(),
         }
@@ -66,6 +72,7 @@ impl AppError {
     pub fn log_detail(&self) -> String {
         match self {
             AppError::Internal(detail) => format!("Internal error: {detail}"),
+            AppError::UpdateCheckFailed(detail) => format!("Update check failed: {detail}"),
             other => other.message(),
         }
     }
@@ -100,6 +107,10 @@ mod tests {
         assert_eq!(AppError::PlatformUnsupported.code(), "PLATFORM_UNSUPPORTED");
         assert_eq!(AppError::CatalogEmpty.code(), "CATALOG_EMPTY");
         assert_eq!(
+            AppError::UpdateCheckFailed("offline".into()).code(),
+            "UPDATE_CHECK_FAILED"
+        );
+        assert_eq!(
             AppError::Validation("x".into()).code(),
             "VALIDATION"
         );
@@ -120,6 +131,15 @@ mod tests {
         let json = serde_json::to_value(&err).unwrap();
         assert_eq!(json["message"], "Something went wrong. Please try again.");
         assert!(!json["message"].as_str().unwrap().contains("secret"));
+    }
+
+    #[test]
+    fn update_check_failed_keeps_detail_out_of_message() {
+        let err = AppError::UpdateCheckFailed("401 from api.github.com".into());
+        let json = serde_json::to_value(&err).unwrap();
+        assert_eq!(json["code"], "UPDATE_CHECK_FAILED");
+        assert_eq!(json["message"], "Couldn't check for updates.");
+        assert!(err.log_detail().contains("401"));
     }
 
     #[test]

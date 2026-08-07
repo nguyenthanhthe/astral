@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { Activity, AlertCircle, Flag, Play } from 'lucide-react';
 import {
   checkDiscordSession,
+  checkForUpdate,
   fetchActiveQuests,
   getSessionStatus,
   optimizeRam,
@@ -19,7 +20,7 @@ import type {
   SessionStarted,
   SessionStopped,
 } from './lib/quest';
-import { AppHeader, type ConnectionState } from './components/AppHeader';
+import { AppHeader, type ConnectionState, type UpdateState } from './components/AppHeader';
 import { Button } from './components/Button';
 import { QuestList } from './components/QuestList';
 import { SearchInput } from './components/SearchInput';
@@ -48,6 +49,24 @@ export function App() {
   const [discordUser, setDiscordUser] = useState<DiscordStatus>(DISCONNECTED_STATUS);
   const [connection, setConnection] = useState<ConnectionState>('checking');
   const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [updateState, setUpdateState] = useState<UpdateState>('idle');
+  const [updateLatest, setUpdateLatest] = useState<string | undefined>(undefined);
+  const [updateUrl, setUpdateUrl] = useState<string | undefined>(undefined);
+
+  const runUpdateCheck = useCallback(() => {
+    setUpdateState('checking');
+    checkForUpdate()
+      .then((info) => {
+        if (info.is_update_available) {
+          setUpdateLatest(info.latest_version);
+          setUpdateUrl(info.url);
+          setUpdateState('available');
+        } else {
+          setUpdateState('uptodate');
+        }
+      })
+      .catch(() => setUpdateState('error'));
+  }, []);
 
   const loadQuests = useCallback(() => {
     setQuestsLoading(true);
@@ -72,6 +91,7 @@ export function App() {
         setConnection(user.connected ? 'connected' : 'disconnected');
       })
       .catch(() => setConnection('disconnected'));
+    runUpdateCheck();
     // Re-hydrate an engine-owned session after a reload.
     getSessionStatus()
       .then((status) => {
@@ -80,7 +100,7 @@ export function App() {
         setSessionMessage(`Running ${status.game_name}`);
       })
       .catch(() => undefined);
-  }, [loadQuests]);
+  }, [loadQuests, runUpdateCheck]);
 
   // Live Discord connection pill: the backend connection task pushes
   // `discord://status` on connect/disconnect/reconnect (Phase 1, §7.2).
@@ -198,7 +218,15 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <AppHeader version={appVersion} connection={connection} username={discordUser.username} />
+      <AppHeader
+        version={appVersion}
+        connection={connection}
+        username={discordUser.username}
+        updateState={updateState}
+        latestVersion={updateLatest}
+        releaseUrl={updateUrl}
+        onCheckForUpdate={runUpdateCheck}
+      />
 
       {sessionError && (
         <div className="error-banner" role="alert">

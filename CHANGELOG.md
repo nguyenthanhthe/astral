@@ -3,6 +3,13 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Update check, GitHub link & README rewrite (local, no release)
+- Added `services/update/mod.rs`: `check_for_update` command queries the GitHub latest-release API and reports `UpdateInfo { latest_version, current_version, is_update_available, url }`; version comparison is a pure, unit-tested dot-segment function (`v` prefix tolerant, non-numeric segments → 0). Failures map to the new typed `UPDATE_CHECK_FAILED` error whose message never leaks internals
+- Header now shows a check-for-updates pill (idle → checking → up to date / new version available with a link to the release page) plus a GitHub logo that opens the repository via the shell plugin; version badge switched to the GitHub mark
+- Rewrote `README.md` to match the current architecture (services layer, session engine, release assets, FAQ)
+
 ## [2.10.0] - 2026-08-07
 
 ### Backend Refactor — Phase 5 (Session engine & settings contract)

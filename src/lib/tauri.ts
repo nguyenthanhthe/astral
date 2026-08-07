@@ -41,6 +41,18 @@ export function optimizeRam(): Promise<string> {
   return invoke<string>('optimize_ram');
 }
 
+export interface UpdateInfo {
+  latest_version: string;
+  current_version: string;
+  is_update_available: boolean;
+  url: string;
+}
+
+/** Query the latest astral GitHub release and report whether we're outdated. */
+export function checkForUpdate(): Promise<UpdateInfo> {
+  return invoke<UpdateInfo>('check_for_update');
+}
+
 export interface Settings {
   memory_trim_on_start: boolean;
 }

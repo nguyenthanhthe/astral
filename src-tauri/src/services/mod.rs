@@ -6,3 +6,4 @@ pub mod discord;
 pub mod memory;
 pub mod session;
 pub mod spoofer;
+pub mod update;

@@ -9,9 +9,8 @@
 [![GitHub Repo](https://img.shields.io/badge/GitHub-Repo-black.svg?logo=github)](https://github.com/nguyenthanhthe/astral)
 [![Releases](https://img.shields.io/github/v/release/nguyenthanhthe/astral?color=38bdf8&label=Release&logo=github)](https://github.com/nguyenthanhthe/astral/releases)
 [![License](https://img.shields.io/badge/license-MIT-red.svg?logo=mit&label=License)](LICENSE)
-[![Binary Size](https://img.shields.io/badge/Binary-3.93MB-green.svg?logo=windows&label=Size)](https://github.com/nguyenthanhthe/astral/releases)
-[![Rust](https://img.shields.io/badge/Rust-1.97.1_stable-orange.svg?logo=rust)](https://www.rust-lang.org/)
-[![Tauri](https://img.shields.io/badge/Tauri-v2.0.0-38bdf8.svg?logo=tauri)](https://tauri.app/)
+[![Rust](https://img.shields.io/badge/Rust-stable-orange.svg?logo=rust)](https://www.rust-lang.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-v2-38bdf8.svg?logo=tauri)](https://tauri.app/)
 
 <p align="center">
   <b>Desktop companion for Discord Quest completion &amp; Rich Presence management.</b>
@@ -25,37 +24,26 @@
 
 ## Overview
 
-**Astral** is a lightweight desktop application built with **Tauri v2**, **Rust**, and **React 18**. Designed for privacy and performance, Astral enables Discord Quest completion and Rich Presence management with a **<4 MB binary footprint** and **<28 MB memory usage**.
+**Astral** is a lightweight desktop application built with **Tauri v2**, **Rust**, and **React**. It runs Discord Quest sessions and manages Rich Presence with a small, privacy-friendly binary — no account token is ever touched; everything happens through Discord's local IPC and the public detectable-games API.
 
 | Feature | Description |
 | :--- | :--- |
-| **Sub-4MB Executable** | Compiled with Rust Link-Time Optimization (`lto = true`, `opt-level = "z"`), producing a single 4.11 MB standalone binary. |
-| **Direct Local Named Pipe IPC** | Communicates directly with `\\.\pipe\discord-ipc-0` via Rust standard library without third-party wrapper dependencies. |
-| **Multi-Binary Alias Spoofer** | Automatically instantiates multi-process launcher aliases registered in Discord's scanner database (e.g. `Endfield.exe`, `evelauncher.exe`, `ExeFile.exe`, `WWM.exe`). |
-| **1-Click Quest Collector** | Scans and claims active Discord Quests (Arknights: Endfield, Marvel Strike Force, EVE Online, Where Winds Meet, League of Legends). |
-| **Backend Game Search** | Search any game title via the native `search_discord_games` Rust handler to resolve application IDs and executable mappings dynamically. |
-| **Video & Game Quest Support** | Full support for 30-second Video Watch Quests and 15-minute Game Play Quests with a live 0-100% progress indicator. |
-| **Production UI** | Dark, Discord-native design system (see [`DESIGN.md`](DESIGN.md)); accessible, responsive, with clear connected/running/error states. |
+| **Rust backend** | Typed `services` layer (`discord`, `catalog`, `session`, `spoofer`, `memory`, `update`) with an event-driven architecture — no Python, no PowerShell. |
+| **Event-driven sessions** | A single async session engine owns every quest run: it emits `session://started`, `session://progress` (1s), `session://finished`, and `session://stopped`; the UI renders engine-pushed state and re-hydrates after a reload. |
+| **HTTP game catalog** | Fetches Discord's detectable-applications database via `reqwest` (openssl), caches it with a 24h TTL, and refreshes on a background task emitting `catalog://updated`. |
+| **Backend game search** | Instant, case-insensitive search over the typed catalog from `search_discord_games` — resolves application IDs and executable mappings dynamically. |
+| **Hardened spoofer (Windows)** | Launches staged copies of a harmless binary named after the game's catalog executables, tracks PIDs in a registry, and kills by PID (`taskkill /pid`) — no `taskkill /im`, no `Desktop/Win64`. |
+| **Video & game quests** | 30-second video/console quests and 15-minute game quests with a live progress ring; console/stream quests run purely over the Discord activity IPC. |
+| **Update check & GitHub link** | The header checks the GitHub releases API for a newer version and links straight to the repository. |
+| **Production UI** | Dark, Discord-native design system (see [`DESIGN.md`](DESIGN.md)); accessible, responsive, with explicit loading/error/connection states. |
 
 ---
 
-## News & Releases
+## Releases
 
-- [2026-08-07] **v2.9.0 — Linux & macOS support ✦** | Discord IPC ported to Unix domain sockets so the Linux `.deb` works out of the box (tested live against Discord), plus an experimental unsigned universal macOS build. [[Release v2.9.0 →](https://github.com/nguyenthanhthe/astral/releases/tag/v2.9.0)]
-- [2026-08-03] **v2.4.0 — Astral Official Release ✦** | Added native Rust backend game search (`search_discord_games`), multi-binary launcher alias spoofer (`evelauncher.exe`, `ExeFile.exe`, `WWM.exe`), sub-4MB LTO binary optimization, and official GitHub Releases. [[Release v2.4.0 →](https://github.com/nguyenthanhthe/astral/releases/tag/v2.4.0)]
+- **v2.10.0** — Session engine, event-driven UI, hardened spoofer, settings contract. Assets: Linux `.deb` / `.rpm`, Windows NSIS installer + MSI, macOS universal `.dmg` (unsigned, experimental). [[Release →](https://github.com/nguyenthanhthe/astral/releases/tag/v2.10.0)]
 
----
-
-## Empirical Benchmarks
-
-| Metric / Application | Orbshacker (Legacy Python) | Astral v1.0 (Un-optimized) | Astral v2.4 (Current Release) |
-| :--- | :--- | :--- | :--- |
-| **Binary Executable Size** | 16.47 MB | 23.54 MB | **3.93 MB** (83.3% Smaller) |
-| **RAM Memory (WorkingSet)**| 31.71 MB | 29.79 MB | **28.29 MB** (Lowest RAM) |
-| **Compiler Optimization** | PyInstaller Archive | Standard Debug/Release | **LTO (`opt-level="z"`, `lto=true`, `strip=true`)** |
-| **IPC Communication** | None (Processes only) | Basic Handshake | **Full Named Pipe RPC (`\\.\pipe\discord-ipc-0`)** |
-| **Scanner Detection** | Sub-process console `ping` | Basic WinForms window | **Multi-Binary Executable Alias Spoofer** |
-| **Backend Search** | Hardcoded list | Frontend search | **Native Rust `search_discord_games` Handler** |
+> **Update checking** is built in: the header pill compares the running version with the latest GitHub release and links to the release page when an update is available.
 
 ---
 
@@ -63,29 +51,39 @@
 
 ### Download Pre-built Binaries
 
-Download the latest release directly from **[GitHub Releases](https://github.com/nguyenthanhthe/astral/releases/latest)**:
+Grab the latest release from **[GitHub Releases](https://github.com/nguyenthanhthe/astral/releases/latest)**:
 
-- **Linux (Debian/Ubuntu)**: `astral_2.9.0_amd64.deb` — install with `sudo apt install ./astral_2.9.0_amd64.deb`
-- **macOS (experimental, unsigned)**: `astral_2.9.0_universal.dmg` or `astral_2.9.0_macos-universal.app.zip`
-- **Windows**: `astral.exe` / setup installer — build locally with `npm run tauri build` on a Windows machine
+- **Linux (Debian/Ubuntu)**: `astral_<version>_amd64.deb` — `sudo apt install ./astral_<version>_amd64.deb`
+- **Windows**: `astral_<version>_x64-setup.exe` (NSIS installer) or the `.msi`
+- **macOS (experimental, unsigned)**: `astral_<version>_universal.dmg`
 
 ### Usage
 
-1. Open Discord Desktop, navigate to **Settings → Quests**, and click **"Chấp nhận nhiệm vụ"** (Accept Quest).
-2. Launch **`astral.exe`**.
-3. Select a mission (e.g. *Arknights: Endfield*, *Where Winds Meet*, *EVE Online*) or click **Start first quest**.
-4. Watch the live progress indicator until the reward is awarded.
+1. Open Discord Desktop and accept a quest (e.g. *Arknights: Endfield*, *Where Winds Meet*, *Fortnite*, *EVE Online*).
+2. Launch **Astral**.
+3. Pick a quest or click **Start first quest**.
+4. Watch the live progress ring until the reward is awarded.
 
-### macOS (Experimental)
+---
 
-- Built from the **Actions → Release (macOS experimental)** workflow (manual trigger); the universal `.dmg`/`.app` is attached to each release.
-- **Unsigned**: first open shows "Astral cannot be opened because the developer cannot be verified". Right-click the app → **Open**, or run:
-  ```bash
-  sudo xattr -dr com.apple.quarantine /Applications/Astral.app
-  ```
-- Discord Rich Presence (non-EXE quests, activity spoofing) works over the Unix socket at `/tmp/discord-ipc-0`.
-- The **process spoofer is Windows-only** — EXE game quests will show an "only available on Windows" error on macOS.
-- No local Mac is available for runtime testing; expect rough edges.
+## Architecture
+
+```
+src-tauri/src
+├── lib.rs          → thin command layer (start/stop session, search, catalog, update…)
+├── app/            → typed error contract + managed AppState (session, catalog, spoofer, settings)
+├── domain/         → pure models: Quest, Session, LaunchTarget, Reward, DetectableGame
+├── infra/          → centralised config (URLs, TTLs, durations, IPC backoff)
+└── services/
+    ├── discord/    → IPC connection task (self-healing) + one-shot activity helper
+    ├── catalog/    → HTTP detectable-games fetch + typed cache (TTL 24h)
+    ├── session/    → session engine: one async task, watch-channel stop, 1s progress events
+    ├── spoofer/    → Windows orchestrator: catalog exe names, staging, PID-based kill
+    ├── memory/     → working-set trimmer (SetProcessWorkingSetSize, gated)
+    └── update/     → GitHub latest-release check (pure version compare)
+```
+
+The frontend (`src/`) is a thin React shell: it renders engine-pushed `session://` events, subscribes to `discord://status`, and never computes its own timers or progress.
 
 ---
 
@@ -93,42 +91,66 @@ Download the latest release directly from **[GitHub Releases](https://github.com
 
 ### Requirements
 
-- **Node.js** (v18+)
-- **Rust** (1.80+ with `x86_64-pc-windows-gnu` or `x86_64-pc-windows-msvc` target)
-- **MinGW-w64** GCC toolchain
+- **Node.js** (v18+, npm)
+- **Rust** (stable; `rustup` recommended)
+- **Linux**: `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`
 
 ### Build Commands
 
-```powershell
+```bash
 # 1. Clone repository
 git clone https://github.com/nguyenthanhthe/astral.git
 cd astral
 
-# 2. Install Node dependencies
+# 2. Install frontend dependencies
 npm install
 
-# 3. Build optimized release binary
-$env:PATH = "C:\MinGW64\bin;$env:USERPROFILE\.cargo\bin;" + $env:PATH
-npx tauri build --target x86_64-pc-windows-gnu
+# 3. Run in development (hot-reload)
+npm run tauri dev
+
+# 4. Build a release bundle (.deb / .rpm / AppImage)
+npm run tauri build
 ```
 
-The output executable will be created at: `src-tauri/target/x86_64-pc-windows-gnu/release/astral.exe`
+The bundles land in `src-tauri/target/release/bundle/`.
+
+> **Windows builds** are produced in CI (`Release (Windows)` workflow on `v*` tags) because the app cannot be cross-compiled from Linux; the bundled `.exe`/`.msi` are attached to each release.
 
 ---
 
 ## FAQ
 
 <details>
-<summary><b>Why did quest tracking stay at 0% previously?</b></summary>
+<summary><b>Does Astral require my Discord account token?</b></summary>
 
-Discord's process scanner checks both executable filenames AND active window handles. Some games (like *EVE Online* or *Where Winds Meet*) register multiple launcher binary aliases (`evelauncher.exe`, `ExeFile.exe`, `WWM.exe`). Astral v2.4 spawns all registered aliases simultaneously to guarantee 100% scanner detection.
+No. Astral operates strictly via Discord's local IPC (named pipe on Windows, Unix socket elsewhere) and the public detectable-games API. It never requests or stores login credentials.
 </details>
 
 <details>
-<summary><b>Does Astral require my Discord account token?</b></summary>
+<summary><b>How does quest tracking actually work?</b></summary>
 
-No. Astral operates strictly via local Windows named pipes (`\\.\pipe\discord-ipc-0`) and local process emulation. It does not require or request user tokens or login credentials.
+For game quests, Astral spawns a staged, harmless process whose filename matches the game's executables from Discord's own detectable database, so Discord's process scanner recognises the "running" game. Console/stream quests only need the activity over the local IPC — no process at all.
 </details>
+
+<details>
+<summary><b>Why do sessions now run in the backend?</b></summary>
+
+Since v2.10.0 a dedicated async session engine owns every quest run and pushes progress events every second. The UI no longer keeps a timer, so progress stays accurate across reloads and window churn.
+</details>
+
+<details>
+<summary><b>Why is the macOS build unsigned / experimental?</b></summary>
+
+There is no local Mac or Apple Developer ID for signing. The universal `.dmg` is built by the `Release (macOS experimental)` workflow; first launch needs "Open anyway" or `sudo xattr -dr com.apple.quarantine /Applications/Astral.app`. The process spoofer is Windows-only.
+</details>
+
+---
+
+## Documentation
+
+- [`DESIGN.md`](DESIGN.md) — brand contract and design tokens.
+- [`tasks/system-design.md`](tasks/system-design.md) — architecture and the IPC contract (commands + events).
+- [`CHANGELOG.md`](CHANGELOG.md) — release history.
 
 ---
 

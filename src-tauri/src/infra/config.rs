@@ -37,6 +37,13 @@ pub const IPC_RECONNECT_BACKOFF_MS: &[u64] = &[200, 500, 1_000, 2_000, 5_000, 10
 /// staged. Replaces the old `Desktop/Win64` hack.
 pub const SPOOF_DIR_NAME: &str = "spoof";
 
+/// Astral repository homepage (frontend GitHub link target).
+pub const GITHUB_REPO_URL: &str = "https://github.com/nguyenthanhthe/astral";
+
+/// GitHub API endpoint for the latest release (update checks).
+pub const GITHUB_LATEST_RELEASE_API_URL: &str =
+    "https://api.github.com/repos/nguyenthanhthe/astral/releases/latest";
+
 #[cfg(test)]
 mod tests {
     use super::*;

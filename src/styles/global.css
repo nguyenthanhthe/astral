@@ -102,6 +102,84 @@ input {
   color: var(--text-muted);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-overlay);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.update-pill:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--text-header);
+}
+
+.update-pill:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.update-pill--available {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.update-pill--available:hover {
+  color: var(--success);
+}
+
+.update-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.github-link {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.github-link:hover {
+  color: var(--text-header);
+  background: var(--bg-hover);
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;

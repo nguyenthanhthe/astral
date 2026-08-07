@@ -167,6 +167,7 @@ Tất cả đều `async fn`, trả `AppResult<T>`.
 | `fetch_active_quests` | — | `Vec<DiscordQuest>` | quests hardcoded mặc định |
 | `search_discord_games` | `{ query }` | `Vec<DiscordQuest>` | catalog typed, cap 25 |
 | `refresh_catalog` | — | `CatalogState` | refetch bằng reqwest |
+| `check_for_update` | — | `UpdateInfo` | GitHub latest release vs running version |
 | `start_session` | `{ quest: DiscordQuest }` | `()` | engine; lỗi `SESSION_ACTIVE` nếu đang chạy |
 | `stop_session` | — | `()` | idempotent |
 | `get_session_status` | — | `SessionStarted \| null` | re-hydrate sau reload |
@@ -376,6 +377,15 @@ Mỗi slice để lại app **chạy được**. `npm run tauri build` giữ là
 - [x] **T12** `set_settings`/`get_settings`, contract doc, CHANGELOG, CI giữ
       xanh. *(Verify: npm test, cargo test, build)*
       - `SettingsPatch` additive; wrapper FE `getSettings`/`setSettings`.
+- [x] **T13** Update check + GitHub link + README rewrite. *(Verify: cargo test,
+      clippy, npm test, live smoke)*
+      - `services/update/mod.rs`: `check_for_update` → GitHub latest-release
+        API; `version_is_newer` thuần (dot-segment, bỏ `v` prefix, segment
+        non-số → 0); lỗi `UPDATE_CHECK_FAILED` không leak detail.
+      - Header: pill "Check for updates" (idle/checking/up-to-date/available →
+        link release) + logo GitHub mở repo qua shell plugin.
+      - README viết lại theo kiến trúc hiện tại; CHANGELOG Unreleased; giữ
+        local, không phát hành.
 
 **Checkpoint mỗi 2 task:** `cargo test` + `cargo clippy -D warnings` + `npm run
 build` xanh, chạy được bằng binary release.
