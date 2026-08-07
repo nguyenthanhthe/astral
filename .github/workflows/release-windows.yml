@@ -1,0 +1,70 @@
+name: Release (Windows)
+
+# Builds signed-signing-less Windows bundles (NSIS installer + portable exe)
+# on GitHub's windows-latest runner and uploads them as release assets.
+#
+# The process spoofer / session engine are the real reason this exists: the
+# Windows .exe cannot be cross-compiled from Linux (no mingw/zig toolchain),
+# so we build it natively in CI.
+#
+# Triggers:
+#   - push of a tag matching v* (e.g. v2.10.0)
+#   - manual run from the Actions tab
+#
+# On a tag push the assets are attached to the corresponding GitHub release.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Windows installer + portable
+    runs-on: windows-latest
+    concurrency:
+      group: release-windows
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Rust (MSVC)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and bundle
+        run: npm run tauri build
+
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: astral-windows-bundle
+          path: src-tauri/target/release/bundle/**
+          if-no-files-found: error
+
+      - name: Attach assets to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.exe.sha256
+            src-tauri/target/release/bundle/nsis/*.txt
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/msi/*.msi.sha256
+            src-tauri/target/release/bundle/*/*.exe

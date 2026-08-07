@@ -1,0 +1,81 @@
+/* Astral design tokens — see DESIGN.md for the brand contract. */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg-base: #111214;
+  --bg-raised: #1e1f22;
+  --bg-overlay: #2b2d31;
+  --bg-sunken: #0d0e10;
+  --bg-hover: rgba(255, 255, 255, 0.03);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: #3f4147;
+
+  /* Brand */
+  --brand: #5865f2;
+  --brand-hover: #4752c4;
+  --brand-soft: rgba(88, 101, 242, 0.12);
+  --brand-ring: rgba(88, 101, 242, 0.3);
+
+  /* Text */
+  --text-header: #f2f3f5;
+  --text-normal: #dbdee1;
+  --text-muted: #949ba4;
+  --text-disabled: #5c6066;
+  --text-link: #00a8fc;
+
+  /* Status */
+  --success: #23a55a;
+  --success-soft: rgba(35, 165, 90, 0.12);
+  --success-border: rgba(35, 165, 90, 0.35);
+  --warning: #f0b232;
+  --warning-soft: rgba(240, 178, 50, 0.1);
+  --warning-border: rgba(240, 178, 50, 0.3);
+  --danger: #f23f43;
+  --danger-hover: #c72e34;
+  --offline: #80848e;
+  --offline-soft: rgba(128, 132, 142, 0.12);
+  --offline-border: rgba(128, 132, 142, 0.35);
+
+  /* Interaction */
+  --btn-secondary: #4e5058;
+  --btn-secondary-hover: #6d6f78;
+  --progress-track: rgba(255, 255, 255, 0.08);
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 999px;
+
+  /* Spacing scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Typography */
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 18px;
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Focus */
+  --focus-ring: 0 0 0 2px var(--bg-raised), 0 0 0 4px var(--brand);
+}

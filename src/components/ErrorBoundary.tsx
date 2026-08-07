@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { Button } from './Button';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -31,36 +32,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
 
     return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          gap: '1rem',
-          color: 'var(--text-muted)',
-          fontFamily: 'Outfit, sans-serif',
-          textAlign: 'center',
-          padding: '2rem',
-        }}
-      >
-        <h2 style={{ color: '#f87171', margin: 0 }}>Something went wrong</h2>
-        <p style={{ margin: 0 }}>{this.state.message}</p>
-        <button
-          onClick={this.handleRetry}
-          style={{
-            padding: '0.5rem 1.2rem',
-            background: '#0284c7',
-            border: 'none',
-            borderRadius: '6px',
-            color: 'white',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
+      <div className="state-block" role="alert" style={{ minHeight: '100vh', justifyContent: 'center' }}>
+        <h2 className="state-block__title">Something went wrong</h2>
+        <p className="state-block__hint">{this.state.message}</p>
+        <Button variant="primary" onClick={this.handleRetry}>
           Retry
-        </button>
+        </Button>
       </div>
     );
   }

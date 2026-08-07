@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DiscordQuest, DiscordStatus } from './quest';
+import type { DiscordQuest, DiscordStatus, SessionStarted } from './quest';
 
 /** Check whether Discord IPC is reachable and return the logged-in user. */
 export function checkDiscordSession(): Promise<DiscordStatus> {
@@ -11,42 +11,50 @@ export function fetchActiveQuests(): Promise<DiscordQuest[]> {
   return invoke<DiscordQuest[]>('fetch_active_quests');
 }
 
-/** Search the 23,800+ Discord game backend. */
+/** Search the Discord game backend for a matching quest. */
 export function searchDiscordGames(query: string): Promise<DiscordQuest[]> {
   return invoke<DiscordQuest[]>('search_discord_games', { query });
 }
 
-/** Spoof a non-EXE (console/stream) quest via Discord IPC. */
-export function spoofNonExeQuest(
-  questType: string,
-  clientId: string,
-  gameName: string,
-  durationSeconds: number,
-): Promise<string> {
-  return invoke<string>('spoof_non_exe_quest', { questType, clientId, gameName, durationSeconds });
+/** Force a network refresh of the detectable-games catalog. */
+export function refreshCatalog(): Promise<void> {
+  return invoke<void>('refresh_catalog');
 }
 
-/** Set Discord Rich Presence activity with a start/end progress window. */
-export function setDiscordActivity(
-  clientId: string,
-  details: string,
-  state: string,
-  durationSeconds: number,
-): Promise<string> {
-  return invoke<string>('set_discord_activity', { clientId, details, state, durationSeconds });
+/** Start a quest session on the backend (the engine drives progress). */
+export function startSession(quest: DiscordQuest): Promise<void> {
+  return invoke<void>('start_session', { quest });
 }
 
-/** Launch spoofer processes for an EXE quest. */
-export function startSpoofer(exeName: string, gameName?: string): Promise<string> {
-  return invoke<string>('start_spoofer', { exeName, gameName });
+/** Stop the running session. */
+export function stopSession(): Promise<void> {
+  return invoke<void>('stop_session');
 }
 
-/** Stop spoofer processes and clean up staged executables. */
-export function stopSpoofer(exeName: string): Promise<string> {
-  return invoke<string>('stop_spoofer', { exeName });
+/** Current session state, or null when idle (UI re-hydration). */
+export function getSessionStatus(): Promise<SessionStarted | null> {
+  return invoke<SessionStarted | null>('get_session_status');
 }
 
 /** Trim unmapped WebView2 memory pages (Windows only). */
 export function optimizeRam(): Promise<string> {
   return invoke<string>('optimize_ram');
+}
+
+export interface Settings {
+  memory_trim_on_start: boolean;
+}
+
+export interface SettingsPatch {
+  memory_trim_on_start?: boolean;
+}
+
+/** Read the current settings. */
+export function getSettings(): Promise<Settings> {
+  return invoke<Settings>('get_settings');
+}
+
+/** Apply an additive settings patch. */
+export function setSettings(patch: SettingsPatch): Promise<Settings> {
+  return invoke<Settings>('set_settings', { patch });
 }

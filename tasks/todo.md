@@ -1,0 +1,22 @@
+# Todo: Astral Frontend Production Redesign
+
+- [x] Research open-design (nexu-io) + Discord design system
+- [x] Survey current frontend (App.tsx, styles, tests, CSP)
+- [x] Write spec + plan
+- [ ] `src/styles/tokens.css` — design tokens
+- [ ] `src/styles/global.css` — reset, base, component styles
+- [ ] `src/index.css` — import tokens + global
+- [ ] `src/lib/quest.ts` — add label helpers (+ tests)
+- [ ] `src/components/Button.tsx`
+- [ ] `src/components/StatusPill.tsx`
+- [ ] `src/components/AppHeader.tsx`
+- [ ] `src/components/SearchInput.tsx`
+- [ ] `src/components/QuestList.tsx` (rows + skeleton + empty/error)
+- [ ] `src/components/ProgressRing.tsx`
+- [ ] `src/components/SessionPanel.tsx`
+- [ ] `src/App.tsx` — rewrite shell, keep behavior
+- [ ] `index.html` — drop Google Fonts, tighten title
+- [ ] `tauri.conf.json` — tighten CSP, window title
+- [ ] `DESIGN.md` — brand contract
+- [ ] `README.md` + `CHANGELOG.md` copy updates
+- [ ] Verify: `npm run build`, `npm test`, grep banned copy

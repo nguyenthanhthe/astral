@@ -14,7 +14,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-v2.0.0-38bdf8.svg?logo=tauri)](https://tauri.app/)
 
 <p align="center">
-  <b>High-performance, autonomous Discord Quest & Rich Presence manager for Windows.</b>
+  <b>Desktop companion for Discord Quest completion &amp; Rich Presence management.</b>
 </p>
 
 [[Releases](https://github.com/nguyenthanhthe/astral/releases)] [[Documentation](#documentation)] [[License](LICENSE)]
@@ -25,16 +25,17 @@
 
 ## Overview
 
-**Astral** is a lightweight, zero-dependency Windows desktop application built with **Tauri v2**, **Rust**, and **React 18**. Designed for privacy and high performance, Astral enables 1-click autonomous Discord Quest completion and Rich Presence management with a **<4 MB binary footprint** and **<28 MB memory usage**.
+**Astral** is a lightweight desktop application built with **Tauri v2**, **Rust**, and **React 18**. Designed for privacy and performance, Astral enables Discord Quest completion and Rich Presence management with a **<4 MB binary footprint** and **<28 MB memory usage**.
 
 | Feature | Description |
 | :--- | :--- |
 | **Sub-4MB Executable** | Compiled with Rust Link-Time Optimization (`lto = true`, `opt-level = "z"`), producing a single 4.11 MB standalone binary. |
 | **Direct Local Named Pipe IPC** | Communicates directly with `\\.\pipe\discord-ipc-0` via Rust standard library without third-party wrapper dependencies. |
 | **Multi-Binary Alias Spoofer** | Automatically instantiates multi-process launcher aliases registered in Discord's scanner database (e.g. `Endfield.exe`, `evelauncher.exe`, `ExeFile.exe`, `WWM.exe`). |
-| **1-Click Missions Collector** | Scans and claims active Discord Quests (Arknights: Endfield, Marvel Strike Force, EVE Online, Where Winds Meet, League of Legends). |
-| **23,800+ Game Backend Search** | Search any game title via the native `search_discord_games` Rust handler to resolve application IDs and executable mappings dynamically. |
-| **Video & Game Quest Support** | Full support for 30-second Video Watch Quests and 15-minute Game Play Quests with dynamic 0-100% progress gauge synchronization. |
+| **1-Click Quest Collector** | Scans and claims active Discord Quests (Arknights: Endfield, Marvel Strike Force, EVE Online, Where Winds Meet, League of Legends). |
+| **Backend Game Search** | Search any game title via the native `search_discord_games` Rust handler to resolve application IDs and executable mappings dynamically. |
+| **Video & Game Quest Support** | Full support for 30-second Video Watch Quests and 15-minute Game Play Quests with a live 0-100% progress indicator. |
+| **Production UI** | Dark, Discord-native design system (see [`DESIGN.md`](DESIGN.md)); accessible, responsive, with clear connected/running/error states. |
 
 ---
 
@@ -72,8 +73,8 @@ Download the latest release directly from **[GitHub Releases](https://github.com
 
 1. Open Discord Desktop, navigate to **Settings → Quests**, and click **"Chấp nhận nhiệm vụ"** (Accept Quest).
 2. Launch **`astral.exe`**.
-3. Select your mission (e.g. *Arknights: Endfield*, *Where Winds Meet*, *EVE Online*) or click **Auto-Execute All**.
-4. Observe the progress gauge advance 0-100% until Orbs are awarded.
+3. Select a mission (e.g. *Arknights: Endfield*, *Where Winds Meet*, *EVE Online*) or click **Start first quest**.
+4. Watch the live progress indicator until the reward is awarded.
 
 ### macOS (Experimental)
 
