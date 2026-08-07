@@ -4,9 +4,8 @@ name: Release (macOS experimental)
 # runners. Experimental: no local Mac exists to test runtime, the app is
 # unsigned (no Apple Developer ID), and the process spoofer is Windows-only.
 #
-# Run it manually from the Actions tab. The finished bundle is uploaded to a
-# separate draft release tagged `macos-v<version>` so it never collides with
-# the Windows release flow.
+# Run it manually from the Actions tab. The finished bundle is uploaded as a
+# build artifact; attach it to the GitHub release afterwards.
 
 on:
   workflow_dispatch:
@@ -15,8 +14,6 @@ jobs:
   build:
     name: Build unsigned universal macOS app
     runs-on: macos-latest
-    permissions:
-      contents: write
     concurrency:
       group: release-macos
       cancel-in-progress: false
@@ -27,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Set up Rust (Intel + Apple Silicon targets)
@@ -44,12 +41,11 @@ jobs:
         run: npm ci
 
       - name: Build and bundle (universal, unsigned)
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run tauri build -- --target universal-apple-darwin
+
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tagName: macos-v__VERSION__
-          releaseName: "Astral macOS experimental v__VERSION__"
-          releaseDraft: true
-          prerelease: true
-          args: --target universal-apple-darwin
+          name: astral-macos-bundle
+          path: src-tauri/target/universal-apple-darwin/release/bundle/**
+          if-no-files-found: error
