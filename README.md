@@ -40,7 +40,7 @@
 
 ## News & Releases
 
-- [2026-08-07] **macOS build (experimental)** | Astral can now be built for macOS via the `Release (macOS experimental)` GitHub Action. Discord Rich Presence works over the Unix IPC socket. The process spoofer is **Windows-only**. macOS builds are **unsigned** (no Apple Developer ID), so macOS shows a Gatekeeper warning on first open. [[macOS release →](https://github.com/nguyenthanhthe/astral/releases?q=macos)]
+- [2026-08-07] **v2.9.0 — Linux & macOS support ✦** | Discord IPC ported to Unix domain sockets so the Linux `.deb` works out of the box (tested live against Discord), plus an experimental unsigned universal macOS build. [[Release v2.9.0 →](https://github.com/nguyenthanhthe/astral/releases/tag/v2.9.0)]
 - [2026-08-03] **v2.4.0 — Astral Official Release ✦** | Added native Rust backend game search (`search_discord_games`), multi-binary launcher alias spoofer (`evelauncher.exe`, `ExeFile.exe`, `WWM.exe`), sub-4MB LTO binary optimization, and official GitHub Releases. [[Release v2.4.0 →](https://github.com/nguyenthanhthe/astral/releases/tag/v2.4.0)]
 
 ---
@@ -62,10 +62,11 @@
 
 ### Download Pre-built Binaries
 
-Download the latest release directly from **[GitHub Releases](https://github.com/nguyenthanhthe/astral/releases/tag/v2.4.0)**:
+Download the latest release directly from **[GitHub Releases](https://github.com/nguyenthanhthe/astral/releases/latest)**:
 
-- **Standalone Executable**: `astral.exe` (4.11 MB - Double click to run, no installation required)
-- **Windows Setup Installer**: `astral_0.1.0_x64-setup.exe` (4.3 MB - Installs to Program Files)
+- **Linux (Debian/Ubuntu)**: `astral_2.9.0_amd64.deb` — install with `sudo apt install ./astral_2.9.0_amd64.deb`
+- **macOS (experimental, unsigned)**: `astral_2.9.0_universal.dmg` or `astral_2.9.0_macos-universal.app.zip`
+- **Windows**: `astral.exe` / setup installer — build locally with `npm run tauri build` on a Windows machine
 
 ### Usage
 
@@ -76,7 +77,7 @@ Download the latest release directly from **[GitHub Releases](https://github.com
 
 ### macOS (Experimental)
 
-- Built from the **Actions → Release (macOS experimental)** workflow (manual trigger). Output lands in a draft release tagged `macos-v<version>`.
+- Built from the **Actions → Release (macOS experimental)** workflow (manual trigger); the universal `.dmg`/`.app` is attached to each release.
 - **Unsigned**: first open shows "Astral cannot be opened because the developer cannot be verified". Right-click the app → **Open**, or run:
   ```bash
   sudo xattr -dr com.apple.quarantine /Applications/Astral.app
