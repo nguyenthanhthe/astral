@@ -335,6 +335,23 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
+            let _main = tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("Astral — Discord Quest & Activity Manager")
+            .inner_size(960.0, 640.0)
+            .resizable(true)
+            .decorations(true)
+            .on_navigation(|url| {
+                // Only the bundled app protocol (and the dev server) may load;
+                // the webview never navigates to an external site.
+                url.scheme() == "tauri"
+                    || url.host_str() == Some("tauri.localhost")
+                    || (cfg!(dev) && url.host_str() == Some("localhost"))
+            })
+            .build()?;
             app.manage(AppState::new(app.handle().clone()));
             game_catalog::spawn(app.handle());
             crate::services::discord::connection::spawn(app.handle());

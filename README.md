@@ -41,7 +41,7 @@
 
 ## Releases
 
-- **v2.10.0** — Session engine, event-driven UI, hardened spoofer, settings contract. Assets: Linux `.deb` / `.rpm`, Windows NSIS installer + MSI, macOS universal `.dmg` (unsigned, experimental). [[Release →](https://github.com/nguyenthanhthe/astral/releases/tag/v2.10.0)]
+- **v2.11.0** — Update check & GitHub link, honest (simulated) completion, no-ghost activity, catalog-verified quests, external links open in the system browser. Assets: Linux `.deb` / `.rpm`, Windows NSIS installer + MSI, macOS universal `.dmg` (unsigned, experimental). [[Release →](https://github.com/nguyenthanhthe/astral/releases/tag/v2.11.0)]
 
 > **Update checking** is built in: the header pill compares the running version with the latest GitHub release and links to the release page when an update is available.
 
