@@ -3,7 +3,7 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [2.10.0] - 2026-08-07
 
 ### Backend Refactor — Phase 5 (Session engine & settings contract)
 - Added `services/session/engine.rs`: a single tokio task owns the session; `start_session` returns `SESSION_ACTIVE` when already running, `stop_session` is idempotent (watch channel → clean stop with reason `USER`), and `get_session_status` re-hydrates the UI after a reload. The engine emits `session://started`, `session://progress` every 1s (`MissedTickBehavior::Skip`), `session://finished`, and `session://stopped`; the frontend dropped its `setInterval` and now renders engine-pushed progress
@@ -85,3 +85,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added `.gitignore` entries for binaries and platform-generated schemas
 
 [2.9.0]: https://github.com/nguyenthanhthe/astral/releases/tag/v2.9.0
+[2.10.0]: https://github.com/nguyenthanhthe/astral/releases/tag/v2.10.0
