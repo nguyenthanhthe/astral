@@ -40,6 +40,11 @@ function QuestRow({
           <span className="quest-row__meta">
             {quest.title} · Target <code>{questTargetLabel(quest.exe_name)}</code>
           </span>
+          {!quest.catalog_verified && (
+            <span className="quest-row__warn" role="note">
+              Not in Discord's detectable list — may not count.
+            </span>
+          )}
         </span>
         <span className="quest-row__side">
           <span className="quest-row__reward">

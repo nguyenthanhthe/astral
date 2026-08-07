@@ -46,6 +46,10 @@ pub struct DiscordQuest {
     pub client_id: String,
     pub reward: String,
     pub progress_percent: u32,
+    /// True when this quest's executable comes from Discord's detectable-game
+    /// catalog (or is a curated, known-good quest). Custom quests created
+    /// from a search miss are unverified and may not be detected by Discord.
+    pub catalog_verified: bool,
 }
 
 impl From<&Quest> for DiscordQuest {
@@ -58,6 +62,7 @@ impl From<&Quest> for DiscordQuest {
             client_id: q.client_id.clone(),
             reward: q.reward.to_display(),
             progress_percent: q.saved_percent as u32,
+            catalog_verified: true,
         }
     }
 }
@@ -196,7 +201,11 @@ fn search_discord_games(query: String, state: tauri::State<'_, AppState>) -> Vec
             Reward::Orbs(DEFAULT_REWARD_ORBS),
             0,
         );
-        list.push(DiscordQuest::from(&custom));
+        let mut wire = DiscordQuest::from(&custom);
+        // Search miss: the `.exe` is a guess Discord's detector has never
+        // seen, so completion is not guaranteed (Direction A).
+        wire.catalog_verified = false;
+        list.push(wire);
     }
 
     list
@@ -361,6 +370,7 @@ mod tests {
             client_id: "1".into(),
             reward: "700 Orbs".into(),
             progress_percent: 0,
+            catalog_verified: true,
         };
         assert!(quest_matches(&q, "endfield"));
         assert!(quest_matches(&q, "companionship"));
@@ -437,6 +447,7 @@ mod tests {
         let stream = wire.iter().find(|q| q.id == "stream_quest_1").unwrap();
         assert_eq!(stream.exe_name, "[Stream Quest]");
         assert_eq!(stream.client_id, DEFAULT_CLIENT_ID);
+        assert!(wire.iter().all(|q| q.catalog_verified), "curated quests are verified");
     }
 
     #[test]
@@ -449,6 +460,7 @@ mod tests {
             client_id: "1".into(),
             reward: "700 Orbs".into(),
             progress_percent: 42,
+            catalog_verified: true,
         };
         let q = quest_from_wire(&console);
         assert_eq!(q.target, LaunchTarget::Console);

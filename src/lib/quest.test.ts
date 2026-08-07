@@ -14,6 +14,7 @@ const exeQuest: DiscordQuest = {
   client_id: '1',
   reward: '700 Orbs',
   progress_percent: 0,
+  catalog_verified: true,
 };
 
 describe('formatTime', () => {

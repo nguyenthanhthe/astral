@@ -143,7 +143,7 @@ export function App() {
         setSelectedQuest(null);
         setProgress(100);
         setSecondsLeft(0);
-        setSessionMessage('Quest complete.');
+        setSessionMessage('Session complete (simulated) — confirm the reward in Discord.');
       }),
       listen<SessionStopped>('session://stopped', (event) => {
         setIsRunning(false);

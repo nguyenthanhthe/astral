@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Honest completion & no-ghost activity (Direction A, local, no release)
+- Session completion is now labelled truthfully: the UI reports **"Session complete (simulated) — confirm the reward in Discord"** instead of a fabricated "Quest complete"; Discord-side completion is not claimed because the app never touches the account token (see `tasks/system-design.md` §9)
+- Stopping or finishing a session now sends **`CLEAR_ACTIVITY`** over the local IPC (`ipc::clear_activity`), removing the `[start, end]` presence window so no ghost activity outlives the session
+- New `catalog_verified` flag on the wire quest: quests backed by Discord's detectable-game catalog (or curated quests) are verified; a search-miss "Custom Quest" is marked unverified and the UI shows **"Not in Discord's detectable list — may not count."**
+- Backend: `catalog_verified` threaded through `DiscordQuest`/`From<&Quest>` (curated = true) with a projection test; clippy/tests still clean
+
 ### Update check, GitHub link & README rewrite (local, no release)
 - Added `services/update/mod.rs`: `check_for_update` command queries the GitHub latest-release API and reports `UpdateInfo { latest_version, current_version, is_update_available, url }`; version comparison is a pure, unit-tested dot-segment function (`v` prefix tolerant, non-numeric segments → 0). Failures map to the new typed `UPDATE_CHECK_FAILED` error whose message never leaks internals
 - Header now shows a check-for-updates pill (idle → checking → up to date / new version available with a link to the release page) plus a GitHub logo that opens the repository via the shell plugin; version badge switched to the GitHub mark

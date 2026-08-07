@@ -37,3 +37,15 @@ pub fn send_activity(req: ActivityRequest) -> Result<(), String> {
     )
     .map_err(|e| format!("Set activity failed: {e}"))
 }
+
+/// Remove the app's Rich Presence over a short-lived IPC connection. Best
+/// effort: failure (e.g. Discord closed) is swallowed by the caller.
+pub fn clear_activity() -> Result<(), String> {
+    let mut stream = ipc::open().map_err(|e| format!("Failed to connect to Discord IPC: {e}"))?;
+    ipc::clear_activity(
+        &mut stream,
+        std::process::id(),
+        &format!("{QUEST_NONCE_PREFIX}_clear"),
+    )
+    .map_err(|e| format!("Clear activity failed: {e}"))
+}

@@ -292,10 +292,15 @@ async fn finish(app: &AppHandle, session: &Session, outcome: Outcome) {
     }
 }
 
-/// Stop spoofer processes (Windows) in a blocking-capable task.
+/// Stop spoofer processes (Windows) and clear the activity over the local
+/// IPC, so no ghost presence outlives the session (Direction A).
 async fn cleanup(app: &AppHandle) {
     let app = app.clone();
-    let _ = tauri::async_runtime::spawn_blocking(move || orchestrator::stop_all(&app)).await;
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        orchestrator::stop_all(&app);
+        let _ = crate::services::discord::activity::clear_activity();
+    })
+    .await;
 }
 
 fn session_kind(target: &LaunchTarget) -> SessionKind {

@@ -193,6 +193,17 @@ pub fn set_activity(
     send_frame(stream, 1, &bytes)
 }
 
+/// Send a CLEAR_ACTIVITY (op 1) frame, removing the app's Rich Presence.
+pub fn clear_activity(stream: &mut dyn ReadWrite, pid: u32, nonce: &str) -> io::Result<()> {
+    let payload = serde_json::json!({
+        "cmd": "CLEAR_ACTIVITY",
+        "args": { "pid": pid },
+        "nonce": nonce,
+    });
+    let bytes = serde_json::to_vec(&payload).map_err(io_serde)?;
+    send_frame(stream, 1, &bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;

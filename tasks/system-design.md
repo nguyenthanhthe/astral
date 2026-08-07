@@ -386,6 +386,13 @@ Mỗi slice để lại app **chạy được**. `npm run tauri build` giữ là
         link release) + logo GitHub mở repo qua shell plugin.
       - README viết lại theo kiến trúc hiện tại; CHANGELOG Unreleased; giữ
         local, không phát hành.
+- [x] **T14** Honest completion & no-ghost activity (Direction A). *(Verify:
+      cargo test, clippy, npm test, live smoke)*
+      - `finished` giờ báo "Session complete (simulated)" — không khẳng định
+        Discord đã tính; `fetch_active_quests` không phải quest thật của user.
+      - `CLEAR_ACTIVITY` khi stop/finish (hết ghost presence).
+      - `catalog_verified` flag trên wire quest; Custom Quest (search miss)
+        bị đánh unverified + cảnh báo trong UI.
 
 **Checkpoint mỗi 2 task:** `cargo test` + `cargo clippy -D warnings` + `npm run
 build` xanh, chạy được bằng binary release.

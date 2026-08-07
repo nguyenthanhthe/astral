@@ -6,6 +6,8 @@ export interface DiscordQuest {
   client_id: string;
   reward: string;
   progress_percent: number;
+  /** True when the executable is backed by Discord's detectable-game catalog. */
+  catalog_verified: boolean;
 }
 
 export interface DiscordStatus {
