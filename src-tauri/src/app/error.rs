@@ -101,7 +101,10 @@ mod tests {
 
     #[test]
     fn codes_match_contract() {
-        assert_eq!(AppError::DiscordNotReachable.code(), "DISCORD_NOT_REACHABLE");
+        assert_eq!(
+            AppError::DiscordNotReachable.code(),
+            "DISCORD_NOT_REACHABLE"
+        );
         assert_eq!(AppError::SessionActive.code(), "SESSION_ACTIVE");
         assert_eq!(AppError::QuestNotFound.code(), "QUEST_NOT_FOUND");
         assert_eq!(AppError::PlatformUnsupported.code(), "PLATFORM_UNSUPPORTED");
@@ -110,10 +113,7 @@ mod tests {
             AppError::UpdateCheckFailed("offline".into()).code(),
             "UPDATE_CHECK_FAILED"
         );
-        assert_eq!(
-            AppError::Validation("x".into()).code(),
-            "VALIDATION"
-        );
+        assert_eq!(AppError::Validation("x".into()).code(), "VALIDATION");
         assert_eq!(AppError::Internal("boom".into()).code(), "INTERNAL");
     }
 
@@ -158,6 +158,9 @@ mod tests {
     #[test]
     fn display_is_readable() {
         let err = AppError::SessionActive;
-        assert_eq!(err.to_string(), "SESSION_ACTIVE: A session is already active.");
+        assert_eq!(
+            err.to_string(),
+            "SESSION_ACTIVE: A session is already active."
+        );
     }
 }

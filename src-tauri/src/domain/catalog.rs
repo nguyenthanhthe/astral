@@ -53,7 +53,11 @@ impl DetectableGame {
                     .get("is_launcher")
                     .and_then(|b| b.as_bool())
                     .unwrap_or(false);
-                let os = ex.get("os").and_then(|o| o.as_str()).unwrap_or("").to_string();
+                let os = ex
+                    .get("os")
+                    .and_then(|o| o.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 executables.push(DetectableExe {
                     name: base.to_string(),
                     is_launcher,
@@ -193,12 +197,15 @@ mod tests {
         let game = DetectableGame::from_json(&v).unwrap();
         let names = game.win32_exe_names();
         // darwin .app excluded; LOL.EXE deduped against lol.exe (case-insensitive)
-        assert_eq!(names, vec![
-            "lol.exe",
-            "lolex.exe",
-            "league of legends.exe",
-            "leagueclientux.exe"
-        ]);
+        assert_eq!(
+            names,
+            vec![
+                "lol.exe",
+                "lolex.exe",
+                "league of legends.exe",
+                "leagueclientux.exe"
+            ]
+        );
     }
 
     #[test]
@@ -212,7 +219,10 @@ mod tests {
             ]
         });
         let game = DetectableGame::from_json(&v).unwrap();
-        assert_eq!(game.primary_exe(), Some("league of legends.exe".to_string()));
+        assert_eq!(
+            game.primary_exe(),
+            Some("league of legends.exe".to_string())
+        );
     }
 
     #[test]

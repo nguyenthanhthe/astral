@@ -98,7 +98,19 @@ mod tests {
 
     #[test]
     fn clamps_saved_percent() {
-        assert_eq!(Quest::new("x", "t", "g", LaunchTarget::Console, "c", Reward::Orbs(1), 150).saved_percent, 100);
+        assert_eq!(
+            Quest::new(
+                "x",
+                "t",
+                "g",
+                LaunchTarget::Console,
+                "c",
+                Reward::Orbs(1),
+                150
+            )
+            .saved_percent,
+            100
+        );
     }
 
     #[test]

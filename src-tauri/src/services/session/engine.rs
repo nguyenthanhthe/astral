@@ -91,7 +91,10 @@ pub async fn start(app: &AppHandle, quest: Quest) -> Result<Session, AppError> {
     *state.write_session() = Some(session.clone());
 
     let handle = tauri::async_runtime::spawn(run(app.clone(), session.clone(), stop_rx));
-    *state.write_session_task() = Some(SessionTask { stop: stop_tx, handle });
+    *state.write_session_task() = Some(SessionTask {
+        stop: stop_tx,
+        handle,
+    });
 
     let _ = app.emit(
         EVENT_SESSION_STARTED,
@@ -149,11 +152,7 @@ pub fn status(app: &AppHandle) -> Option<SessionStarted> {
     })
 }
 
-async fn run(
-    app: AppHandle,
-    session: Session,
-    mut stop_rx: watch::Receiver<Option<StopReason>>,
-) {
+async fn run(app: AppHandle, session: Session, mut stop_rx: watch::Receiver<Option<StopReason>>) {
     if let Err(e) = launch(&app, &session).await {
         log::warn!("session {} launch failed: {}", session.id, e.log_detail());
         finish(&app, &session, Outcome::Stopped(StopReason::Error)).await;

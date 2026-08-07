@@ -61,7 +61,9 @@ impl Catalog {
 
     /// Resolve a game record by exact (case-insensitive) name.
     pub fn find(&self, name: &str) -> Option<&DetectableGame> {
-        self.games.iter().find(|g| g.name.eq_ignore_ascii_case(name))
+        self.games
+            .iter()
+            .find(|g| g.name.eq_ignore_ascii_case(name))
     }
 }
 
@@ -259,7 +261,10 @@ mod tests {
     #[test]
     fn win32_executables_are_the_simulation_targets() {
         let games = parse_games(&sample_body()).unwrap();
-        let lol = games.iter().find(|g| g.name == "League of Legends").unwrap();
+        let lol = games
+            .iter()
+            .find(|g| g.name == "League of Legends")
+            .unwrap();
         let exes = lol.win32_exe_names();
         // darwin entries excluded; case-insensitive dedupe on win32 names.
         assert!(exes.iter().any(|e| e == "lol.exe"));
@@ -268,4 +273,3 @@ mod tests {
         assert_eq!(lol.primary_exe().unwrap(), "lol.exe");
     }
 }
-

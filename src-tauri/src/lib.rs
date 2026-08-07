@@ -265,7 +265,9 @@ async fn start_session(
     state: tauri::State<'_, AppState>,
 ) -> Result<(), AppError> {
     let app = state.app_handle.clone();
-    session_engine::start(&app, quest_from_wire(&quest)).await.map(|_| ())
+    session_engine::start(&app, quest_from_wire(&quest))
+        .await
+        .map(|_| ())
 }
 
 /// Stop the running session (idempotent when nothing is running).
@@ -326,7 +328,6 @@ fn quest_from_wire(q: &DiscordQuest) -> Quest {
     )
 }
 
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
@@ -380,8 +381,7 @@ mod tests {
 
     #[test]
     fn catalog_hits_merge_into_search_without_duplicates() {
-        let games =
-            crate::services::catalog::game_catalog::parse_games(&catalog_sample()).unwrap();
+        let games = crate::services::catalog::game_catalog::parse_games(&catalog_sample()).unwrap();
         let catalog = Catalog {
             games,
             fetched_at: std::time::Instant::now(),
@@ -447,7 +447,10 @@ mod tests {
         let stream = wire.iter().find(|q| q.id == "stream_quest_1").unwrap();
         assert_eq!(stream.exe_name, "[Stream Quest]");
         assert_eq!(stream.client_id, DEFAULT_CLIENT_ID);
-        assert!(wire.iter().all(|q| q.catalog_verified), "curated quests are verified");
+        assert!(
+            wire.iter().all(|q| q.catalog_verified),
+            "curated quests are verified"
+        );
     }
 
     #[test]

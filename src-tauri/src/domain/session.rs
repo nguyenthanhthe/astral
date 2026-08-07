@@ -56,7 +56,9 @@ impl Session {
     }
 
     pub fn remaining_sec(&self, now: Instant) -> u64 {
-        self.target_sec.saturating_sub(now.saturating_duration_since(self.started_at)).as_secs()
+        self.target_sec
+            .saturating_sub(now.saturating_duration_since(self.started_at))
+            .as_secs()
     }
 
     pub fn is_finished(&self, now: Instant) -> bool {

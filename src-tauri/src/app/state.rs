@@ -187,7 +187,9 @@ mod tests {
             memory_trim_on_start: Some(true),
         };
         let merged = Settings {
-            memory_trim_on_start: patch.memory_trim_on_start.unwrap_or(base.memory_trim_on_start),
+            memory_trim_on_start: patch
+                .memory_trim_on_start
+                .unwrap_or(base.memory_trim_on_start),
         };
         assert!(merged.memory_trim_on_start);
 

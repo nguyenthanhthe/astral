@@ -14,11 +14,11 @@ use tauri::AppHandle;
 #[cfg(target_os = "windows")]
 use tauri::Manager;
 
+use crate::app::error::AppError;
 #[cfg(target_os = "windows")]
 use crate::app::state::AppState;
 #[cfg(target_os = "windows")]
 use crate::infra::config::SPOOF_DIR_NAME;
-use crate::app::error::AppError;
 use crate::services::catalog::game_catalog::Catalog;
 
 /// Resolve the executable names to simulate for a game.
@@ -43,11 +43,7 @@ pub fn exe_names_for_simulation(catalog: Option<&Catalog>, game_name: &str) -> V
 /// Discord matches by basename, and we must not allow path traversal into the
 /// staging dir. Handles both `/` and `\` separators.
 pub fn sanitize_exe_name(name: &str) -> String {
-    let base = name
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or(name)
-        .to_string();
+    let base = name.rsplit(['/', '\\']).next().unwrap_or(name).to_string();
     ensure_exe_suffix(&base)
 }
 

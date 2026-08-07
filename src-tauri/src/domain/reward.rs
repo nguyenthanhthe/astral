@@ -25,10 +25,7 @@ impl FromStr for Reward {
     /// `Orbs(700)`; anything else falls back to `Other`.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim();
-        if let Some(num) = s
-            .strip_suffix(" Orbs")
-            .or_else(|| s.strip_suffix(" orbs"))
-        {
+        if let Some(num) = s.strip_suffix(" Orbs").or_else(|| s.strip_suffix(" orbs")) {
             if let Ok(n) = num.trim().parse::<u32>() {
                 return Ok(Reward::Orbs(n));
             }
@@ -50,7 +47,10 @@ mod tests {
     #[test]
     fn parse_orbs_round_trip() {
         assert_eq!("700 Orbs".parse::<Reward>().unwrap(), Reward::Orbs(700));
-        assert_eq!(Reward::Orbs(700).to_display().parse::<Reward>().unwrap(), Reward::Orbs(700));
+        assert_eq!(
+            Reward::Orbs(700).to_display().parse::<Reward>().unwrap(),
+            Reward::Orbs(700)
+        );
     }
 
     #[test]

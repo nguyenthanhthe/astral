@@ -40,7 +40,9 @@ async fn run(app: AppHandle) {
             IPC_RECONNECT_BACKOFF_MS[0]
         } else {
             failures += 1;
-            let idx = failures.saturating_sub(1).min(IPC_RECONNECT_BACKOFF_MS.len() - 1);
+            let idx = failures
+                .saturating_sub(1)
+                .min(IPC_RECONNECT_BACKOFF_MS.len() - 1);
             IPC_RECONNECT_BACKOFF_MS[idx]
         };
         log::debug!("discord reconnect in {delay_ms}ms (connected={connected})");
