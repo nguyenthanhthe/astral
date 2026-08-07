@@ -1,4 +1,4 @@
-import { Github, RefreshCw } from 'lucide-react';
+import { Github, RefreshCw, Star } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 import { StatusPill, type ConnectionState } from './StatusPill';
 
@@ -44,7 +44,7 @@ export function AppHeader({
     <header className="app-header">
       <div className="brand-group">
         <span className="brand-mark" aria-hidden="true">
-          <Github size={18} strokeWidth={1.5} />
+          <Star size={18} strokeWidth={1.5} fill="currentColor" />
         </span>
         <div className="brand-title">
           <span className="brand-name">ASTRAL</span>

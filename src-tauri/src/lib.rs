@@ -104,7 +104,7 @@ fn active_quests() -> Vec<Quest> {
             },
             "1241071192534597652",
             Reward::Orbs(700),
-            79,
+            0,
         ),
         Quest::new(
             "wwm_1",

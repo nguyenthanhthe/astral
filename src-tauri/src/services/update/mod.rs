@@ -55,7 +55,15 @@ pub fn version_is_newer(latest: &str, current: &str) -> bool {
 /// Query GitHub for the latest release and compare it with the running build.
 pub async fn check_for_update() -> Result<UpdateInfo, AppError> {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
-    let resp = reqwest::get(GITHUB_LATEST_RELEASE_API_URL)
+    // GitHub rejects API requests without a User-Agent (403), so one must be
+    // set explicitly; reqwest's default client sends none.
+    let resp = reqwest::Client::new()
+        .get(GITHUB_LATEST_RELEASE_API_URL)
+        .header(
+            reqwest::header::USER_AGENT,
+            format!("astral/{current_version}"),
+        )
+        .send()
         .await
         .map_err(|e| AppError::UpdateCheckFailed(format!("request failed: {e}")))?;
     if !resp.status().is_success() {
