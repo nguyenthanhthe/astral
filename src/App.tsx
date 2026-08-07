@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Star, ShieldCheck, Play, Square, Sparkles, Clock, Zap, Search, Award, CheckCircle2, Flame, Layers } from 'lucide-react';
-
-interface DiscordQuest {
-  id: string;
-  title: string;
-  game_name: string;
-  exe_name: string;
-  client_id: string;
-  reward: string;
-  progress_percent: number;
-}
+import { Star, Zap, Search, Award, Play, Square, Clock, Flame } from 'lucide-react';
+import {
+  checkDiscordSession,
+  fetchActiveQuests,
+  searchDiscordGames,
+  spoofNonExeQuest,
+  setDiscordActivity,
+  startSpoofer,
+  stopSpoofer,
+  optimizeRam,
+} from './lib/tauri';
+import {
+  type DiscordQuest,
+  type DiscordStatus,
+  isNonExeQuest,
+  targetDurationSec,
+  remainingSec,
+  currentProgress,
+  formatTime,
+} from './lib/quest';
 
 const DEFAULT_QUESTS: DiscordQuest[] = [
   {
@@ -59,61 +68,46 @@ const DEFAULT_QUESTS: DiscordQuest[] = [
   },
 ];
 
+const DISCONNECTED_STATUS: DiscordStatus = {
+  connected: false,
+  username: 'Disconnected',
+  user_id: '',
+};
+
 export function App() {
   const [query, setQuery] = useState('');
   const [quests, setQuests] = useState<DiscordQuest[]>(DEFAULT_QUESTS);
   const [selectedQuest, setSelectedQuest] = useState<DiscordQuest | null>(null);
-  
+
   const [secondsLeft, setSecondsLeft] = useState(15 * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string>('Ready for autonomous quest completion');
-  const [discordUser, setDiscordUser] = useState<{ connected: boolean; username: string }>({
-    connected: true,
-    username: 'telecom.no1',
-  });
-
-  const invokeTauri = async (cmd: string, args?: any) => {
-    try {
-      if ((window as any).__TAURI_INTERNALS__) {
-        const { invoke } = await import('@tauri-apps/api/core');
-        return await invoke(cmd, args);
-      }
-    } catch (e) {
-      console.warn('Tauri invoke unavailable:', e);
-    }
-    return null;
-  };
+  const [discordUser, setDiscordUser] = useState<DiscordStatus>(DISCONNECTED_STATUS);
+  const [initialProgress, setInitialProgress] = useState(0);
+  const [totalRequiredSec, setTotalRequiredSec] = useState(15 * 60);
 
   // Fetch active quests & session on mount and trim unmapped RAM WorkingSet
   useEffect(() => {
-    invokeTauri('optimize_ram');
-    invokeTauri('fetch_active_quests').then((res) => {
-      if (res && Array.isArray(res)) {
-        setQuests(res);
-      }
-    });
-    invokeTauri('check_discord_session').then((res: any) => {
-      if (res && res.connected) {
-        setDiscordUser({ connected: true, username: res.username });
-      }
-    });
+    optimizeRam().catch(() => undefined);
+    fetchActiveQuests()
+      .then(setQuests)
+      .catch(() => undefined);
+    checkDiscordSession()
+      .then(setDiscordUser)
+      .catch(() => undefined);
   }, []);
 
   // Rust backend game & quest search query hook with 350ms input debouncing
   useEffect(() => {
     const handler = setTimeout(() => {
       if (query.trim()) {
-        invokeTauri('search_discord_games', { query }).then((res: any) => {
-          if (res && Array.isArray(res)) {
-            setQuests(res);
-          }
-        });
+        searchDiscordGames(query)
+          .then(setQuests)
+          .catch(() => undefined);
       } else {
-        invokeTauri('fetch_active_quests').then((res: any) => {
-          if (res && Array.isArray(res)) {
-            setQuests(res);
-          }
-        });
+        fetchActiveQuests()
+          .then(setQuests)
+          .catch(() => undefined);
       }
     }, 350);
 
@@ -122,7 +116,7 @@ export function App() {
 
   // Timer countdown loop
   useEffect(() => {
-    let interval: any = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (isRunning && secondsLeft > 0) {
       interval = setInterval(() => {
         setSecondsLeft((prev) => prev - 1);
@@ -131,19 +125,18 @@ export function App() {
       handleStop();
       setStatusMsg('Quest Completed! Orbs & Rewards claimed.');
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isRunning, secondsLeft]);
-
-  const [initialProgress, setInitialProgress] = useState(0);
-  const [totalRequiredSec, setTotalRequiredSec] = useState(15 * 60);
 
   const handleStartQuest = async (quest: DiscordQuest) => {
     setSelectedQuest(quest);
-    
+
     // Determine target duration: 30s for video quests, 900s for game quests
-    const reqSec = quest.exe_name.toLowerCase().includes('video') ? 30 : 15 * 60;
+    const reqSec = targetDurationSec(quest);
     const startProg = quest.progress_percent || 0;
-    const remSec = Math.max(1, Math.round(reqSec * (1 - startProg / 100)));
+    const remSec = remainingSec(reqSec, startProg);
 
     setInitialProgress(startProg);
     setTotalRequiredSec(reqSec);
@@ -151,23 +144,28 @@ export function App() {
     setIsRunning(true);
     setStatusMsg(`Autonomous Quest Active: ${quest.game_name} (${startProg}% ➔ 100%)`);
 
-    if (quest.exe_name.startsWith('[')) {
+    if (isNonExeQuest(quest)) {
       // Non-EXE Quest (Console PS5/Xbox or Voice Stream)
-      await invokeTauri('spoof_non_exe_quest', {
-        questType: quest.exe_name,
-        clientId: quest.client_id,
-        gameName: quest.game_name,
-        durationSeconds: remSec
-      });
+      try {
+        await spoofNonExeQuest(quest.exe_name, quest.client_id, quest.game_name, remSec);
+      } catch (e) {
+        setIsRunning(false);
+        setStatusMsg(`Quest start failed: ${e}`);
+      }
     } else {
       // Windows Desktop Game (.exe Spoofer)
-      await invokeTauri('start_spoofer', { exeName: quest.exe_name, gameName: quest.game_name });
-      await invokeTauri('set_discord_activity', {
-        clientId: quest.client_id,
-        details: `Completing Quest: ${quest.title}`,
-        state: `Earning ${quest.reward}`,
-        durationSeconds: remSec
-      });
+      try {
+        await startSpoofer(quest.exe_name, quest.game_name);
+        await setDiscordActivity(
+          quest.client_id,
+          `Completing Quest: ${quest.title}`,
+          `Earning ${quest.reward}`,
+          remSec,
+        );
+      } catch (e) {
+        setIsRunning(false);
+        setStatusMsg(`Quest start failed: ${e}`);
+      }
     }
   };
 
@@ -180,21 +178,14 @@ export function App() {
 
   const handleStop = async () => {
     if (selectedQuest) {
-      await invokeTauri('stop_spoofer', { exeName: selectedQuest.exe_name });
+      await stopSpoofer(selectedQuest.exe_name);
     }
     setIsRunning(false);
     setSelectedQuest(null);
     setStatusMsg('Spoofing stopped & processes cleaned up');
   };
 
-  const formatTime = (totalSec: number) => {
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const elapsedSec = totalRequiredSec - secondsLeft;
-  const currentProgress = Math.min(100, Math.round(initialProgress + ((totalRequiredSec - secondsLeft) / totalRequiredSec) * (100 - initialProgress)));
+  const currentProgressPct = currentProgress(initialProgress, totalRequiredSec, secondsLeft);
 
   return (
     <div className="app-container">
@@ -220,7 +211,7 @@ export function App() {
         </div>
         <div className="status-badge">
           <span className="dot"></span>
-          <span>Discord Active • {discordUser.username}</span>
+          <span>{discordUser.connected ? `Discord Active • ${discordUser.username}` : 'Discord Disconnected'}</span>
         </div>
       </header>
 
@@ -310,7 +301,7 @@ export function App() {
                         <Award size={14} /> {q.reward}
                       </span>
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        {isCurrent ? `${Math.round(currentProgress)}% Progress` : `${q.progress_percent}% Saved`}
+                        {isCurrent ? `${currentProgressPct}% Progress` : `${q.progress_percent}% Saved`}
                       </span>
                     </div>
                     <Play size={18} color={isCurrent ? '#38bdf8' : '#9ca3af'} />
@@ -337,15 +328,15 @@ export function App() {
             <div style={{ position: 'relative', width: '170px', height: '170px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="170" height="170" viewBox="0 0 170 170" style={{ transform: 'rotate(-90deg)' }}>
                 <circle cx="85" cy="85" r="75" stroke="rgba(255,255,255,0.06)" strokeWidth="10" fill="transparent" />
-                <circle 
-                  cx="85" 
-                  cy="85" 
-                  r="75" 
-                  stroke="url(#starProgressGradient)" 
-                  strokeWidth="10" 
+                <circle
+                  cx="85"
+                  cy="85"
+                  r="75"
+                  stroke="url(#starProgressGradient)"
+                  strokeWidth="10"
                   fill="transparent"
                   strokeDasharray="471"
-                  strokeDashoffset={471 - (471 * currentProgress) / 100}
+                  strokeDashoffset={471 - (471 * currentProgressPct) / 100}
                   strokeLinecap="round"
                   style={{ transition: 'stroke-dashoffset 0.5s ease' }}
                 />
@@ -358,7 +349,7 @@ export function App() {
               </svg>
               <div style={{ position: 'absolute', textAlign: 'center' }}>
                 <div style={{ fontSize: '2.3rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', background: 'linear-gradient(135deg, #38bdf8, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  {isRunning ? `${currentProgress}%` : `${currentProgress}%`}
+                  {currentProgressPct}%
                 </div>
                 <div style={{ fontSize: '0.75rem', color: isRunning ? '#22c55e' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
                   {isRunning ? `${formatTime(secondsLeft)} Left` : 'Standby'}
@@ -367,8 +358,8 @@ export function App() {
             </div>
 
             {isRunning && (
-              <button 
-                onClick={handleStop} 
+              <button
+                onClick={handleStop}
                 style={{ marginTop: '0.5rem', padding: '0.5rem 1.2rem', background: '#ef4444', border: 'none', borderRadius: '6px', color: 'white', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
               >
                 <Square size={14} /> Stop Mission

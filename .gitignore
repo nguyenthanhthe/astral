@@ -8,6 +8,13 @@ dist/
 dist-isolation/
 src-tauri/target/
 
+# Platform-generated schemas
+src-tauri/gen/schemas/linux-schema.json
+
+# Windows release artifacts
+*.exe
+*.dll
+
 # IDE / OS files
 .DS_Store
 Thumbs.db
@@ -19,3 +26,7 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+
+# Local agent tooling (opencode / AionUi)
+.opencode/
+.agents/

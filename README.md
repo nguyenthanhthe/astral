@@ -40,6 +40,7 @@
 
 ## News & Releases
 
+- [2026-08-07] **macOS build (experimental)** | Astral can now be built for macOS via the `Release (macOS experimental)` GitHub Action. Discord Rich Presence works over the Unix IPC socket. The process spoofer is **Windows-only**. macOS builds are **unsigned** (no Apple Developer ID), so macOS shows a Gatekeeper warning on first open. [[macOS release →](https://github.com/nguyenthanhthe/astral/releases?q=macos)]
 - [2026-08-03] **v2.4.0 — Astral Official Release ✦** | Added native Rust backend game search (`search_discord_games`), multi-binary launcher alias spoofer (`evelauncher.exe`, `ExeFile.exe`, `WWM.exe`), sub-4MB LTO binary optimization, and official GitHub Releases. [[Release v2.4.0 →](https://github.com/nguyenthanhthe/astral/releases/tag/v2.4.0)]
 
 ---
@@ -72,6 +73,17 @@ Download the latest release directly from **[GitHub Releases](https://github.com
 2. Launch **`astral.exe`**.
 3. Select your mission (e.g. *Arknights: Endfield*, *Where Winds Meet*, *EVE Online*) or click **Auto-Execute All**.
 4. Observe the progress gauge advance 0-100% until Orbs are awarded.
+
+### macOS (Experimental)
+
+- Built from the **Actions → Release (macOS experimental)** workflow (manual trigger). Output lands in a draft release tagged `macos-v<version>`.
+- **Unsigned**: first open shows "Astral cannot be opened because the developer cannot be verified". Right-click the app → **Open**, or run:
+  ```bash
+  sudo xattr -dr com.apple.quarantine /Applications/Astral.app
+  ```
+- Discord Rich Presence (non-EXE quests, activity spoofing) works over the Unix socket at `/tmp/discord-ipc-0`.
+- The **process spoofer is Windows-only** — EXE game quests will show an "only available on Windows" error on macOS.
+- No local Mac is available for runtime testing; expect rough edges.
 
 ---
 

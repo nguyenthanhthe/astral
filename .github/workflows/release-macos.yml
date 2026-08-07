@@ -1,0 +1,55 @@
+name: Release (macOS experimental)
+
+# Builds an unsigned universal macOS app/dmg on GitHub's Apple Silicon
+# runners. Experimental: no local Mac exists to test runtime, the app is
+# unsigned (no Apple Developer ID), and the process spoofer is Windows-only.
+#
+# Run it manually from the Actions tab. The finished bundle is uploaded to a
+# separate draft release tagged `macos-v<version>` so it never collides with
+# the Windows release flow.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build unsigned universal macOS app
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-macos
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Rust (Intel + Apple Silicon targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and bundle (universal, unsigned)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: macos-v__VERSION__
+          releaseName: "Astral macOS experimental v__VERSION__"
+          releaseDraft: true
+          prerelease: true
+          args: --target universal-apple-darwin
