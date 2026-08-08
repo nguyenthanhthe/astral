@@ -220,11 +220,11 @@ mod tests {
             &crate::services::catalog::game_catalog::fixture_bytes(),
         )
         .unwrap();
-        let catalog = Catalog {
+        let catalog = crate::services::catalog::game_catalog::Catalog::new(
             games,
-            fetched_at: std::time::Instant::now(),
-            source: crate::services::catalog::game_catalog::CatalogSource::Network,
-        };
+            std::time::Instant::now(),
+            crate::services::catalog::game_catalog::CatalogSource::Network,
+        );
         let names = exe_names_for_simulation(Some(&catalog), "League of Legends");
         // darwin entries excluded, win32 basenames deduped
         assert!(names.iter().any(|n| n == "lol.exe"));

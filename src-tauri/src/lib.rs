@@ -399,11 +399,11 @@ mod tests {
     #[test]
     fn catalog_hits_merge_into_search_without_duplicates() {
         let games = crate::services::catalog::game_catalog::parse_games(&catalog_sample()).unwrap();
-        let catalog = Catalog {
+        let catalog = crate::services::catalog::game_catalog::Catalog::new(
             games,
-            fetched_at: std::time::Instant::now(),
-            source: crate::services::catalog::game_catalog::CatalogSource::Network,
-        };
+            std::time::Instant::now(),
+            crate::services::catalog::game_catalog::CatalogSource::Network,
+        );
         let mut list: Vec<DiscordQuest> = vec![];
         merge_catalog_hits(&mut list, Some(&catalog), "league");
         assert_eq!(list.len(), 1);

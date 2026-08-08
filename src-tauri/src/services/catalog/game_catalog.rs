@@ -35,9 +35,47 @@ pub struct Catalog {
     pub games: Vec<DetectableGame>,
     pub fetched_at: Instant,
     pub source: CatalogSource,
+    /// Precomputed, normalised search data for each game (parallel to
+    /// `games`), built once at construction so every keystroke's search does
+    /// pure comparisons instead of re-normalising all 24k records.
+    index: Vec<SearchIndex>,
+}
+
+/// Normalised search data for one game, computed once.
+#[derive(Debug, Clone)]
+struct SearchIndex {
+    name: String,
+    name_tokens: Vec<String>,
+    exes: Vec<String>,
 }
 
 impl Catalog {
+    pub fn new(games: Vec<DetectableGame>, fetched_at: Instant, source: CatalogSource) -> Self {
+        let index = games
+            .iter()
+            .map(|g| {
+                let name = normalize(&g.name);
+                let name_tokens: Vec<String> = name
+                    .split(' ')
+                    .filter(|t| !t.is_empty())
+                    .map(String::from)
+                    .collect();
+                let exes = g.win32_exe_names().iter().map(|e| normalize(e)).collect();
+                SearchIndex {
+                    name,
+                    name_tokens,
+                    exes,
+                }
+            })
+            .collect();
+        Catalog {
+            games,
+            fetched_at,
+            source,
+            index,
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.games.len()
     }
@@ -51,8 +89,8 @@ impl Catalog {
     }
 
     /// Ranked game search. Matches the game name (punctuation-insensitive),
-    /// the query-as-name-fragment, the name-inside-query, a token subset, or
-    /// any win32 executable basename, capped at `limit`.
+    /// the query-as-name-fragment, the name-inside-query, a token subset, a
+    /// published alias, or any win32 executable basename, capped at `limit`.
     pub fn search<'a>(&'a self, query: &str, limit: usize) -> Vec<&'a DetectableGame> {
         let q = normalize(query);
         if q.is_empty() {
@@ -61,7 +99,8 @@ impl Catalog {
         let mut scored: Vec<(u8, &DetectableGame)> = self
             .games
             .iter()
-            .filter_map(|g| search_tier(g, &q).map(|tier| (tier, g)))
+            .zip(&self.index)
+            .filter_map(|(g, idx)| search_tier(g, idx, &q).map(|tier| (tier, g)))
             .collect();
         scored.sort_by(|a, b| {
             a.0.cmp(&b.0)
@@ -104,36 +143,36 @@ fn normalize(s: &str) -> String {
 /// Best match tier for `game` against a **normalised** query, or `None` when
 /// the game does not match at all. Lower is a stronger match. Games whose
 /// normalised name is empty (e.g. non-ASCII-only names) can only match via
-/// their executables.
-fn search_tier(game: &DetectableGame, q: &str) -> Option<u8> {
-    let name = normalize(&game.name);
-    let name_tokens: Vec<&str> = name.split(' ').filter(|t| !t.is_empty()).collect();
-
-    if !name_tokens.is_empty() {
-        if name == q {
+/// their aliases or executables. Everything name/exe related is read from the
+/// precomputed `SearchIndex` (no per-query allocation per game).
+fn search_tier(game: &DetectableGame, idx: &SearchIndex, q: &str) -> Option<u8> {
+    if !idx.name_tokens.is_empty() {
+        if idx.name == q {
             return Some(0);
         }
-        if name.contains(q) {
+        if idx.name.contains(q) {
             return Some(1);
         }
         let q_tokens: Vec<&str> = q.split(' ').collect();
-        if q_tokens
-            .windows(name_tokens.len())
-            .any(|w| w == name_tokens)
-        {
+        if q_tokens.windows(idx.name_tokens.len()).any(|w| {
+            w.iter()
+                .copied()
+                .eq(idx.name_tokens.iter().map(String::as_str))
+        }) {
             return Some(2);
         }
-        if q_tokens.iter().all(|t| name_tokens.contains(t)) {
+        if q_tokens
+            .iter()
+            .all(|t| idx.name_tokens.iter().any(|n| n == t))
+        {
             return Some(3);
         }
     }
     if let Some(tier) = alias_tier(&game.aliases, q) {
         return Some(tier);
     }
-    for exe in game.win32_exe_names() {
-        if normalize(&exe).contains(q) {
-            return Some(5);
-        }
+    if idx.exes.iter().any(|e| e.contains(q)) {
+        return Some(5);
     }
     None
 }
@@ -224,11 +263,7 @@ pub async fn refresh(app: &AppHandle) -> Result<usize, AppError> {
     }
     {
         let state = app.state::<AppState>();
-        *state.write_catalog() = Some(Catalog {
-            games,
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        });
+        *state.write_catalog() = Some(Catalog::new(games, Instant::now(), CatalogSource::Network));
     }
     emit_updated(app, count, "network");
     log::info!("catalog updated: {count} games");
@@ -333,11 +368,11 @@ fn load_catalog_from(path: &Path) -> Option<Catalog> {
     let file: CatalogCacheFile = serde_json::from_slice(&bytes).ok()?;
     let now_secs = unix_now_secs();
     let age = Duration::from_secs(now_secs.saturating_sub(file.fetched_at_secs));
-    Some(Catalog {
-        games: file.games,
-        fetched_at: Instant::now().checked_sub(age).unwrap_or(Instant::now()),
-        source: CatalogSource::Cache,
-    })
+    Some(Catalog::new(
+        file.games,
+        Instant::now().checked_sub(age).unwrap_or(Instant::now()),
+        CatalogSource::Cache,
+    ))
 }
 
 /// `load_catalog_from` resolved to the app's cache path.
@@ -396,11 +431,7 @@ mod tests {
     #[test]
     fn catalog_search_is_case_insensitive_substring() {
         let games = parse_games(&sample_body()).unwrap();
-        let cat = Catalog {
-            games,
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(games, Instant::now(), CatalogSource::Network);
         let hits: Vec<&str> = cat
             .search("leg", 10)
             .iter()
@@ -439,6 +470,20 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn new_builds_parallel_search_index() {
+        let games = fixture_games();
+        let cat = Catalog::new(games.clone(), Instant::now(), CatalogSource::Network);
+        assert_eq!(cat.index.len(), games.len());
+        assert_eq!(cat.len(), games.len());
+        assert!(!cat.is_empty());
+        // Index names are the normalised game names.
+        assert!(cat
+            .index
+            .iter()
+            .any(|i| i.name == "league of legends" && !i.exes.is_empty()));
     }
 
     #[test]
@@ -502,11 +547,11 @@ mod tests {
 
     #[test]
     fn search_matches_despite_punctuation_in_name() {
-        let cat = Catalog {
-            games: vec![ragnarok_new_world()],
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(
+            vec![ragnarok_new_world()],
+            Instant::now(),
+            CatalogSource::Network,
+        );
         let hits: Vec<&str> = cat
             .search("ragnarok the new world", 10)
             .iter()
@@ -517,11 +562,11 @@ mod tests {
 
     #[test]
     fn search_matches_when_query_has_extra_words() {
-        let cat = Catalog {
-            games: parse_games(&sample_body()).unwrap(),
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(
+            parse_games(&sample_body()).unwrap(),
+            Instant::now(),
+            CatalogSource::Network,
+        );
         let hits: Vec<&str> = cat
             .search("league of legends classic", 10)
             .iter()
@@ -534,11 +579,7 @@ mod tests {
     fn search_matches_by_executable_name() {
         let mut games = parse_games(&sample_body()).unwrap();
         games.push(ragnarok_new_world());
-        let cat = Catalog {
-            games,
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(games, Instant::now(), CatalogSource::Network);
         let by_lol_exe: Vec<&str> = cat
             .search("lol.exe", 10)
             .iter()
@@ -558,11 +599,7 @@ mod tests {
     fn search_ranks_exact_name_match_first() {
         let mut games = parse_games(&sample_body()).unwrap();
         games.push(ragnarok_new_world());
-        let cat = Catalog {
-            games,
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(games, Instant::now(), CatalogSource::Network);
         let hits: Vec<&str> = cat
             .search("League of Legends", 10)
             .iter()
@@ -573,11 +610,11 @@ mod tests {
 
     #[test]
     fn search_matches_reordered_tokens() {
-        let cat = Catalog {
-            games: vec![ragnarok_new_world()],
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(
+            vec![ragnarok_new_world()],
+            Instant::now(),
+            CatalogSource::Network,
+        );
         let hits: Vec<&str> = cat
             .search("new world ragnarok", 10)
             .iter()
@@ -588,11 +625,11 @@ mod tests {
 
     #[test]
     fn search_matches_by_alias() {
-        let cat = Catalog {
-            games: parse_games(&sample_body()).unwrap(),
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(
+            parse_games(&sample_body()).unwrap(),
+            Instant::now(),
+            CatalogSource::Network,
+        );
         let hits: Vec<&str> = cat
             .search("legends tw", 10)
             .iter()
@@ -616,11 +653,7 @@ mod tests {
                 "executables": [{"name": "bar.exe", "os": "win32"}]
             })),
         ];
-        let cat = Catalog {
-            games,
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(games, Instant::now(), CatalogSource::Network);
         let hits: Vec<&str> = cat
             .search("bar", 10)
             .iter()
@@ -637,11 +670,7 @@ mod tests {
             "aliases": ["ぷよぷよ eスポーツ"],
             "executables": [{"name": "puyo.exe", "os": "win32"}]
         }))];
-        let cat = Catalog {
-            games,
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(games, Instant::now(), CatalogSource::Network);
         assert!(cat.search("ragnarok the new world", 10).is_empty());
         let exact: Vec<&str> = cat
             .search("e", 10)
@@ -653,11 +682,11 @@ mod tests {
 
     #[test]
     fn empty_query_lists_everything_up_to_limit() {
-        let cat = Catalog {
-            games: parse_games(&sample_body()).unwrap(),
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(
+            parse_games(&sample_body()).unwrap(),
+            Instant::now(),
+            CatalogSource::Network,
+        );
         assert_eq!(cat.search("", 10).len(), 3);
         assert_eq!(cat.search("   ", 10).len(), 3);
         assert!(cat.search("", 0).is_empty());
@@ -665,22 +694,22 @@ mod tests {
 
     #[test]
     fn catalog_search_respects_limit() {
-        let cat = Catalog {
-            games: parse_games(&sample_body()).unwrap(),
-            fetched_at: Instant::now(),
-            source: CatalogSource::Cache,
-        };
+        let cat = Catalog::new(
+            parse_games(&sample_body()).unwrap(),
+            Instant::now(),
+            CatalogSource::Cache,
+        );
         let hits = cat.search("Impact", 0);
         assert!(hits.is_empty());
     }
 
     #[test]
     fn catalog_find_matches_case_insensitive() {
-        let cat = Catalog {
-            games: parse_games(&sample_body()).unwrap(),
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(
+            parse_games(&sample_body()).unwrap(),
+            Instant::now(),
+            CatalogSource::Network,
+        );
         assert!(cat.find("genshin impact").is_some());
         assert!(cat.find("League of Legends").is_some());
         assert!(cat.find("nope").is_none());
@@ -688,11 +717,11 @@ mod tests {
 
     #[test]
     fn freshness_respects_ttl() {
-        let cat = Catalog {
-            games: parse_games(&sample_body()).unwrap(),
-            fetched_at: Instant::now(),
-            source: CatalogSource::Network,
-        };
+        let cat = Catalog::new(
+            parse_games(&sample_body()).unwrap(),
+            Instant::now(),
+            CatalogSource::Network,
+        );
         assert!(cat.is_fresh(Instant::now()));
         assert!(!cat.is_fresh(Instant::now() + CATALOG_REFRESH_INTERVAL));
     }
