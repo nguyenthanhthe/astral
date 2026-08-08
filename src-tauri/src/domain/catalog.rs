@@ -26,6 +26,11 @@ pub struct DetectableExe {
 pub struct DetectableGame {
     pub name: String,
     pub client_id: String,
+    /// Alternate names Discord publishes (regional/localised, e.g.
+    /// `"League of Legends (TW)"`). `#[serde(default)]` keeps older on-disk
+    /// cache files (written before aliases existed) deserialisable.
+    #[serde(default)]
+    pub aliases: Vec<String>,
     pub executables: Vec<DetectableExe>,
 }
 
@@ -40,6 +45,16 @@ impl DetectableGame {
         let client_id = value.get("id").and_then(|i| i.as_str())?.trim();
         if client_id.is_empty() {
             return None;
+        }
+
+        let mut aliases = Vec::new();
+        if let Some(list) = value.get("aliases").and_then(|a| a.as_array()) {
+            for a in list {
+                let a = a.as_str().unwrap_or("").trim();
+                if !a.is_empty() {
+                    aliases.push(a.to_string());
+                }
+            }
         }
 
         let mut executables = Vec::new();
@@ -71,6 +86,7 @@ impl DetectableGame {
         Some(DetectableGame {
             name: name.to_string(),
             client_id: client_id.to_string(),
+            aliases,
             executables,
         })
     }
@@ -117,6 +133,31 @@ impl DetectableGame {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_aliases_and_drops_empty_ones() {
+        let v = serde_json::json!({
+            "name": "Game",
+            "id": "1",
+            "aliases": ["Regional Name", "   ", ""]
+        });
+        let game = DetectableGame::from_json(&v).unwrap();
+        assert_eq!(game.aliases, vec!["Regional Name"]);
+    }
+
+    #[test]
+    fn missing_aliases_defaults_to_empty() {
+        let v = serde_json::json!({"name": "Game", "id": "1"});
+        let game = DetectableGame::from_json(&v).unwrap();
+        assert!(game.aliases.is_empty());
+    }
+
+    #[test]
+    fn old_cache_record_without_aliases_still_deserializes() {
+        let json = r#"{"name":"Game","client_id":"1","executables":[{"name":"game.exe","is_launcher":false,"os":"win32"}]}"#;
+        let game: DetectableGame = serde_json::from_str(json).unwrap();
+        assert!(game.aliases.is_empty());
+    }
 
     #[test]
     fn parses_valid_record() {

@@ -127,9 +127,43 @@ fn search_tier(game: &DetectableGame, q: &str) -> Option<u8> {
             return Some(3);
         }
     }
+    if let Some(tier) = alias_tier(&game.aliases, q) {
+        return Some(tier);
+    }
     for exe in game.win32_exe_names() {
         if normalize(&exe).contains(q) {
-            return Some(4);
+            return Some(5);
+        }
+    }
+    None
+}
+
+/// Best tier from the game's aliases only, or `None` when no alias matches.
+/// Aliases rank just below real names (exact alias = 3, fuzzy = 4) and above
+/// executable matches (5). Fuzzy tiers require at least two alias tokens so a
+/// non-ASCII alias that normalises down to a single stray letter (e.g.
+/// `ぷよぷよ eスポーツ` → `e`) cannot match every query containing that letter.
+fn alias_tier(aliases: &[String], q: &str) -> Option<u8> {
+    let q_tokens: Vec<&str> = q.split(' ').collect();
+    for alias in aliases {
+        let a = normalize(alias);
+        if a.is_empty() {
+            continue;
+        }
+        let a_tokens: Vec<&str> = a.split(' ').collect();
+        if a == q {
+            return Some(3);
+        }
+        if a_tokens.len() >= 2 {
+            if a.contains(q) || q.contains(a.as_str()) {
+                return Some(4);
+            }
+            if q_tokens.windows(a_tokens.len()).any(|w| w == a_tokens) {
+                return Some(4);
+            }
+            if q_tokens.iter().all(|t| a_tokens.contains(t)) {
+                return Some(4);
+            }
         }
     }
     None
@@ -550,6 +584,71 @@ mod tests {
             .map(|g| g.name.as_str())
             .collect();
         assert_eq!(hits, vec!["Ragnarok: The New World"]);
+    }
+
+    #[test]
+    fn search_matches_by_alias() {
+        let cat = Catalog {
+            games: parse_games(&sample_body()).unwrap(),
+            fetched_at: Instant::now(),
+            source: CatalogSource::Network,
+        };
+        let hits: Vec<&str> = cat
+            .search("legends tw", 10)
+            .iter()
+            .map(|g| g.name.as_str())
+            .collect();
+        assert_eq!(hits, vec!["League of Legends"]);
+    }
+
+    #[test]
+    fn search_ranks_real_name_above_alias() {
+        let games = vec![
+            game(serde_json::json!({
+                "name": "Foo",
+                "id": "1",
+                "aliases": ["bar"],
+                "executables": [{"name": "foo.exe", "os": "win32"}]
+            })),
+            game(serde_json::json!({
+                "name": "Bar Game",
+                "id": "2",
+                "executables": [{"name": "bar.exe", "os": "win32"}]
+            })),
+        ];
+        let cat = Catalog {
+            games,
+            fetched_at: Instant::now(),
+            source: CatalogSource::Network,
+        };
+        let hits: Vec<&str> = cat
+            .search("bar", 10)
+            .iter()
+            .map(|g| g.name.as_str())
+            .collect();
+        assert_eq!(hits, vec!["Bar Game", "Foo"]);
+    }
+
+    #[test]
+    fn single_letter_alias_does_not_match_every_query() {
+        let games = vec![game(serde_json::json!({
+            "name": "Puyo Puyo Champions",
+            "id": "3",
+            "aliases": ["ぷよぷよ eスポーツ"],
+            "executables": [{"name": "puyo.exe", "os": "win32"}]
+        }))];
+        let cat = Catalog {
+            games,
+            fetched_at: Instant::now(),
+            source: CatalogSource::Network,
+        };
+        assert!(cat.search("ragnarok the new world", 10).is_empty());
+        let exact: Vec<&str> = cat
+            .search("e", 10)
+            .iter()
+            .map(|g| g.name.as_str())
+            .collect();
+        assert_eq!(exact, vec!["Puyo Puyo Champions"]);
     }
 
     #[test]

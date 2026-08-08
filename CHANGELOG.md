@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - **Game search misses punctuation, extra words & executables**: catalog search previously only did a case-insensitive substring match on the exact stored name, so queries like "ragnarok the new world" (stored as `Ragnarok: The New World`) or "league of legends classic" (stored as `League of Legends`) returned nothing. Search now normalises punctuation/whitespace and matches ranked tiers: exact name > name contains query > query contains name (whole-token window) > token subset > executable name (`game.exe`, `lol.exe`). Verified against the live 23,907-game detectable catalog.
+- **Search by regional aliases**: Discord's `aliases` field (e.g. `"League of Legends (TW)"`) is now parsed and searchable, ranking just below the real name — so "legends tw" finds League of Legends. The field is `#[serde(default)]` so existing on-disk catalog caches keep loading.
 
 ## [2.11.0] - 2026-08-08
 
