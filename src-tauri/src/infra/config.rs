@@ -18,6 +18,9 @@ pub const CATALOG_URL: &str = "https://discord.com/api/v9/applications/detectabl
 /// How long a fetched catalog is considered fresh before refetch.
 pub const CATALOG_REFRESH_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 
+/// File name for the on-disk catalog cache (under the platform data dir).
+pub const CATALOG_CACHE_FILE: &str = "catalog.json";
+
 /// Target duration for console/stream ("video") quests.
 pub const VIDEO_QUEST_DURATION_SEC: u64 = 30;
 

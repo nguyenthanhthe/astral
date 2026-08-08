@@ -8,8 +8,10 @@
 //! authoritative list of what the spoofer should simulate. No hardcoded
 //! per-game alias tables.
 
+use serde::{Deserialize, Serialize};
+
 /// One detectable process for a game (e.g. `endfield.exe`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DetectableExe {
     /// Normalised process basename (path segments stripped), e.g. `Eve.exe`.
     pub name: String,
@@ -20,7 +22,7 @@ pub struct DetectableExe {
     pub os: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DetectableGame {
     pub name: String,
     pub client_id: String,

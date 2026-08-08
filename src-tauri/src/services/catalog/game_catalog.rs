@@ -8,15 +8,16 @@
 //! here, so spawning those exact names is what makes arbitrary games
 //! (LoL, Endfield, …) detectable — no hardcoded per-game tables.
 
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app::error::AppError;
 use crate::app::state::AppState;
 use crate::domain::catalog::DetectableGame;
-use crate::infra::config::{CATALOG_REFRESH_INTERVAL, CATALOG_URL};
+use crate::infra::config::{CATALOG_CACHE_FILE, CATALOG_REFRESH_INTERVAL, CATALOG_URL};
 
 /// Backend → frontend event name for catalog refreshes.
 pub const EVENT_CATALOG_UPDATED: &str = "catalog://updated";
@@ -179,10 +180,14 @@ pub fn parse_games(body: &[u8]) -> Result<Vec<DetectableGame>, AppError> {
 }
 
 /// Fetch fresh data, store it in `AppState`, and emit `catalog://updated`.
-/// Returns the number of games cached.
+/// The fetched games are also persisted to disk so a later boot can start
+/// from cache (offline-safe) instead of re-downloading the 12 MB body.
 pub async fn refresh(app: &AppHandle) -> Result<usize, AppError> {
     let games = fetch_games().await?;
     let count = games.len();
+    if let Err(e) = persist_catalog(app, &games, unix_now_secs()) {
+        log::warn!("catalog cache write failed: {}", e.log_detail());
+    }
     {
         let state = app.state::<AppState>();
         *state.write_catalog() = Some(Catalog {
@@ -208,14 +213,33 @@ pub fn emit_updated(app: &AppHandle, count: usize, source: &str) {
     );
 }
 
-/// Background catalog task: fetch at startup, then refresh on the TTL.
-/// Failures are logged and retried on the next cycle — the app keeps working
-/// off the empty catalog + custom quests as before.
+/// Background catalog task: load the on-disk cache at startup (instant and
+/// offline-safe), refresh from the network when the cache is stale or missing,
+/// then keep refreshing on the TTL. Failures are logged and retried on the
+/// next cycle — the app keeps working off the empty catalog + custom quests.
 pub fn spawn(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = refresh(&app).await {
-            log::warn!("initial catalog fetch failed: {}", e.log_detail());
+        match load_catalog_cached(&app) {
+            Some(catalog) => {
+                let fresh = catalog.is_fresh(Instant::now());
+                let count = catalog.len();
+                *app.state::<AppState>().write_catalog() = Some(catalog);
+                emit_updated(&app, count, "cache");
+                if fresh {
+                    log::info!("catalog loaded from cache: {count} games");
+                } else {
+                    log::info!("catalog cache stale — refreshing");
+                    if let Err(e) = refresh(&app).await {
+                        log::warn!("catalog refresh failed: {}", e.log_detail());
+                    }
+                }
+            }
+            None => {
+                if let Err(e) = refresh(&app).await {
+                    log::warn!("initial catalog fetch failed: {}", e.log_detail());
+                }
+            }
         }
         loop {
             tokio::time::sleep(CATALOG_REFRESH_INTERVAL).await;
@@ -231,6 +255,71 @@ fn unix_now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+/// On-disk catalog cache: raw games plus the unix timestamp when they were
+/// fetched. `Instant` is not serialisable, so the age is recomputed on load.
+#[derive(Serialize, Deserialize)]
+struct CatalogCacheFile {
+    fetched_at_secs: u64,
+    games: Vec<DetectableGame>,
+}
+
+/// Resolve the catalog cache file path under the app data dir.
+fn catalog_cache_path(app: &AppHandle) -> Result<PathBuf, AppError> {
+    app.path()
+        .app_data_dir()
+        .map(|dir| dir.join(CATALOG_CACHE_FILE))
+        .map_err(|e| AppError::Internal(format!("app data dir: {e}")))
+}
+
+/// Persist `games` to `path`, creating parent directories as needed.
+fn persist_catalog_to(
+    path: &Path,
+    games: &[DetectableGame],
+    fetched_at_secs: u64,
+) -> Result<(), AppError> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| AppError::Internal(format!("catalog cache dir: {e}")))?;
+    }
+    let bytes = serde_json::to_vec(&CatalogCacheFile {
+        fetched_at_secs,
+        games: games.to_vec(),
+    })
+    .map_err(|e| AppError::Internal(format!("catalog cache encode: {e}")))?;
+    std::fs::write(path, bytes).map_err(|e| AppError::Internal(format!("catalog cache write: {e}")))
+}
+
+/// Load a previously persisted catalog, or `None` on any failure (missing,
+/// corrupt, unreadable). `fetched_at` is rebuilt from the stored unix
+/// timestamp so freshness can still be evaluated.
+fn load_catalog_from(path: &Path) -> Option<Catalog> {
+    let bytes = std::fs::read(path).ok()?;
+    let file: CatalogCacheFile = serde_json::from_slice(&bytes).ok()?;
+    let now_secs = unix_now_secs();
+    let age = Duration::from_secs(now_secs.saturating_sub(file.fetched_at_secs));
+    Some(Catalog {
+        games: file.games,
+        fetched_at: Instant::now().checked_sub(age).unwrap_or(Instant::now()),
+        source: CatalogSource::Cache,
+    })
+}
+
+/// `load_catalog_from` resolved to the app's cache path.
+fn load_catalog_cached(app: &AppHandle) -> Option<Catalog> {
+    catalog_cache_path(app)
+        .ok()
+        .and_then(|path| load_catalog_from(&path))
+}
+
+/// `persist_catalog_to` resolved to the app's cache path.
+fn persist_catalog(
+    app: &AppHandle,
+    games: &[DetectableGame],
+    fetched_at_secs: u64,
+) -> Result<(), AppError> {
+    persist_catalog_to(&catalog_cache_path(app)?, games, fetched_at_secs)
 }
 
 /// Real detectable-database sample for cross-module tests (catalog + spoofer).
@@ -304,6 +393,77 @@ mod tests {
                 {"name": "roworldsea/downloader.exe", "os": "win32"}
             ]
         }))
+    }
+
+    fn fixture_games() -> Vec<DetectableGame> {
+        parse_games(&sample_body()).unwrap()
+    }
+
+    fn cache_dir(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("astral-cache-test-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn cache_roundtrip_preserves_games_and_freshness() {
+        let dir = cache_dir("roundtrip");
+        let path = dir.join("catalog.json");
+        let games = fixture_games();
+        persist_catalog_to(&path, &games, unix_now_secs()).unwrap();
+
+        let cat = load_catalog_from(&path).unwrap();
+        assert_eq!(cat.games, games);
+        assert_eq!(cat.source, CatalogSource::Cache);
+        assert!(cat.is_fresh(Instant::now()));
+        assert_eq!(cat.len(), 3);
+    }
+
+    #[test]
+    fn cache_load_returns_none_for_missing_file() {
+        let dir = cache_dir("missing");
+        assert!(load_catalog_from(&dir.join("nope.json")).is_none());
+    }
+
+    #[test]
+    fn cache_load_returns_none_for_corrupt_file() {
+        let dir = cache_dir("corrupt");
+        let path = dir.join("catalog.json");
+        std::fs::write(&path, b"this is not json {").unwrap();
+        assert!(load_catalog_from(&path).is_none());
+    }
+
+    #[test]
+    fn cache_load_marks_old_file_stale() {
+        let dir = cache_dir("stale");
+        let path = dir.join("catalog.json");
+        let age = CATALOG_REFRESH_INTERVAL.as_secs() + 60;
+        persist_catalog_to(&path, &fixture_games(), unix_now_secs().saturating_sub(age)).unwrap();
+
+        let cat = load_catalog_from(&path).unwrap();
+        assert_eq!(cat.len(), 3);
+        assert!(!cat.is_fresh(Instant::now()));
+    }
+
+    #[test]
+    fn cache_load_survives_future_timestamp() {
+        let dir = cache_dir("future");
+        let path = dir.join("catalog.json");
+        persist_catalog_to(&path, &fixture_games(), unix_now_secs() + 60 * 60).unwrap();
+
+        let cat = load_catalog_from(&path).unwrap();
+        assert_eq!(cat.len(), 3);
+        assert!(cat.is_fresh(Instant::now()));
+    }
+
+    #[test]
+    fn cache_persist_creates_parent_dirs() {
+        let dir = cache_dir("nested");
+        let path = dir.join("a").join("b").join("catalog.json");
+        persist_catalog_to(&path, &fixture_games(), unix_now_secs()).unwrap();
+        assert!(path.exists());
     }
 
     #[test]

@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **On-disk catalog cache**: the 12 MB detectable-game catalog is now persisted to `catalog.json` in the app data dir. Startup loads the cached catalog instantly (offline-safe) and only hits the network when the cache is stale or missing; fresh network refreshes update the cache too.
+
 ### Fixed
 - **Game search misses punctuation, extra words & executables**: catalog search previously only did a case-insensitive substring match on the exact stored name, so queries like "ragnarok the new world" (stored as `Ragnarok: The New World`) or "league of legends classic" (stored as `League of Legends`) returned nothing. Search now normalises punctuation/whitespace and matches ranked tiers: exact name > name contains query > query contains name (whole-token window) > token subset > executable name (`game.exe`, `lol.exe`). Verified against the live 23,907-game detectable catalog.
 
