@@ -87,10 +87,34 @@ fn check_discord_session(state: tauri::State<'_, AppState>) -> DiscordStatus {
     current
 }
 
-// ponytail: fetch active Discord missions directly (domain `Quest` → wire)
+// ponytail: fetch active Discord missions directly (domain `Quest` → wire).
+// Curated quests ship with a valid fallback `client_id`; the command upgrades
+// each one to the app's current catalog `client_id` when the catalog is
+// loaded, so the Rich Presence targets the real game application.
 #[tauri::command]
-fn fetch_active_quests() -> Vec<DiscordQuest> {
-    active_quests().iter().map(DiscordQuest::from).collect()
+fn fetch_active_quests(state: tauri::State<'_, AppState>) -> Vec<DiscordQuest> {
+    fetch_active_quests_with(&state)
+}
+
+fn fetch_active_quests_with(state: &AppState) -> Vec<DiscordQuest> {
+    let catalog = state.read_catalog();
+    active_quests()
+        .iter()
+        .map(|q| {
+            let mut wire = DiscordQuest::from(q);
+            wire.client_id = resolve_quest_client_id(catalog.as_ref(), q);
+            wire
+        })
+        .collect()
+}
+
+/// Pick the catalog `client_id` for a quest's game when the catalog is
+/// available; fall back to the quest's built-in id otherwise.
+fn resolve_quest_client_id(catalog: Option<&Catalog>, quest: &Quest) -> String {
+    catalog
+        .and_then(|c| c.find(&quest.game_name))
+        .map(|g| g.client_id.clone())
+        .unwrap_or_else(|| quest.client_id.clone())
 }
 
 fn active_quests() -> Vec<Quest> {
@@ -102,7 +126,7 @@ fn active_quests() -> Vec<Quest> {
             LaunchTarget::Exe {
                 exe_name: "Endfield.exe".into(),
             },
-            "1241071192534597652",
+            "1461154307171811401",
             Reward::Orbs(700),
             0,
         ),
@@ -113,16 +137,16 @@ fn active_quests() -> Vec<Quest> {
             LaunchTarget::Exe {
                 exe_name: "WhereWindsMeet.exe".into(),
             },
-            "1251071192534597659",
+            "1437509662303059998",
             Reward::Orbs(700),
             0,
         ),
         Quest::new(
             "ps5_fortnite_1",
             "PlayStation 5 Console Quest",
-            "Fortnite (PS5 / Xbox)",
+            "Fortnite",
             LaunchTarget::Console,
-            "432920532586070016",
+            "1402418703554842694",
             Reward::Orbs(700),
             0,
         ),
@@ -142,7 +166,7 @@ fn active_quests() -> Vec<Quest> {
             LaunchTarget::Exe {
                 exe_name: "Eve.exe".into(),
             },
-            "1041071192534597652",
+            "363413402300710912",
             Reward::Orbs(700),
             0,
         ),
@@ -179,7 +203,7 @@ fn quest_from_discord_game(game: &DetectableGame) -> Quest {
 // ponytail: instant search (0ms delay) from the in-memory catalog in AppState
 #[tauri::command]
 fn search_discord_games(query: String, state: tauri::State<'_, AppState>) -> Vec<DiscordQuest> {
-    let mut list = fetch_active_quests();
+    let mut list = fetch_active_quests_with(&state);
     let q_lower = query.trim().to_lowercase();
     if q_lower.is_empty() {
         return list;
@@ -420,9 +444,33 @@ mod tests {
 
     #[test]
     fn catalog_absent_search_falls_back_to_active_quests() {
-        let mut list = fetch_active_quests();
+        let quests = active_quests();
+        let mut list: Vec<DiscordQuest> = quests.iter().map(DiscordQuest::from).collect();
         merge_catalog_hits(&mut list, None, "endfield");
         assert_eq!(list.len(), 5, "no catalog -> active quests untouched");
+    }
+
+    #[test]
+    fn resolve_quest_client_id_uses_catalog_when_available() {
+        let games = crate::services::catalog::game_catalog::parse_games(&catalog_sample()).unwrap();
+        let catalog = crate::services::catalog::game_catalog::Catalog::new(
+            games,
+            std::time::Instant::now(),
+            crate::services::catalog::game_catalog::CatalogSource::Cache,
+        );
+        let quests = active_quests();
+        let endfield = quests.iter().find(|q| q.id == "endfield_1".into()).unwrap();
+        assert_eq!(
+            resolve_quest_client_id(Some(&catalog), endfield),
+            "1461154307171811401"
+        );
+
+        let fallback = quests.iter().find(|q| q.id == "eve_1".into()).unwrap();
+        assert_eq!(
+            resolve_quest_client_id(None, fallback),
+            "363413402300710912",
+            "no catalog -> quest's built-in id"
+        );
     }
 
     fn catalog_sample() -> Vec<u8> {

@@ -139,6 +139,27 @@ pub fn handshake(stream: &mut dyn ReadWrite, client_id: &str) -> io::Result<Hand
     let (_, resp) = decode_frame(stream)?;
     let value: serde_json::Value = serde_json::from_slice(&resp).map_err(io_serde)?;
 
+    // Discord answers a bad app id with an ERROR frame (op 2) carrying
+    // `code`; surface that instead of silently treating it as a logged-out
+    // READY. This is how a wrong `client_id` shows up as "Invalid Client ID"
+    // rather than a confusing `Broken pipe` on the following SET_ACTIVITY.
+    if let Some(code) = value.get("code").and_then(|c| c.as_u64()) {
+        let msg = value
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("handshake rejected");
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("Discord rejected handshake (code {code}): {msg}"),
+        ));
+    }
+    if value.get("evt").and_then(|e| e.as_str()) != Some("READY") {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("unexpected handshake frame: {value}"),
+        ));
+    }
+
     let user = value.get("data").and_then(|d| d.get("user"));
     let username = user
         .and_then(|u| u.get("username"))
@@ -316,7 +337,7 @@ mod tests {
     fn handshake_parses_user() {
         let resp = serde_json::json!({
             "cmd": "HANDSHAKE",
-            "evt": null,
+            "evt": "READY",
             "data": {
                 "v": 1,
                 "config": { "cdn_host": "cdn.discordapp.com", "api_endpoint": "//discord.com/api" },
@@ -341,12 +362,30 @@ mod tests {
 
     #[test]
     fn handshake_without_user_falls_back_to_unknown() {
-        let resp = serde_json::json!({ "cmd": "HANDSHAKE", "data": { "v": 1 } });
+        let resp = serde_json::json!({ "cmd": "HANDSHAKE", "evt": "READY", "data": { "v": 1 } });
         let frame = encode_frame(0, &serde_json::to_vec(&resp).unwrap());
         let mut stream = TestStream::from_response(frame);
 
         let result = handshake(&mut stream, "12345").unwrap();
         assert_eq!(result.username, "Unknown");
         assert_eq!(result.user_id, "");
+    }
+
+    #[test]
+    fn handshake_rejects_invalid_client_id() {
+        // Discord answers a bad app id with an ERROR frame carrying `code`.
+        let resp = serde_json::json!({
+            "cmd": "DISPATCH",
+            "evt": null,
+            "data": null,
+            "nonce": "astral_1",
+            "code": 4000,
+            "message": "Invalid Client ID"
+        });
+        let frame = encode_frame(2, &serde_json::to_vec(&resp).unwrap());
+        let mut stream = TestStream::from_response(frame);
+
+        let err = handshake(&mut stream, "bogus").unwrap_err();
+        assert!(err.to_string().contains("Invalid Client ID"), "got: {err}");
     }
 }

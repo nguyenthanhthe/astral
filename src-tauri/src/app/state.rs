@@ -13,6 +13,7 @@ use tauri::AppHandle;
 use tokio::sync::Notify;
 
 use crate::services::catalog::game_catalog::Catalog;
+use crate::services::discord::activity::ActivityGuard;
 use crate::services::session::engine::SessionTask;
 use crate::DiscordStatus;
 
@@ -81,6 +82,9 @@ pub struct AppState {
     pub session: RwLock<Option<crate::domain::session::Session>>,
     /// Handle to the session engine task (stop signal + abort handle).
     pub session_task: RwLock<Option<SessionTask>>,
+    /// Held Rich Presence connection for the running session (the socket
+    /// stays open until the session ends). `None` when idle.
+    pub activity: RwLock<Option<ActivityGuard>>,
     /// PIDs of spoofer processes we launched (Windows only).
     pub spoofer: RwLock<SpooferRegistry>,
     /// Current settings.
@@ -99,6 +103,7 @@ impl AppState {
             catalog: RwLock::new(None),
             session: RwLock::new(None),
             session_task: RwLock::new(None),
+            activity: RwLock::new(None),
             spoofer: RwLock::new(SpooferRegistry::new()),
             settings: RwLock::new(Settings::default()),
             app_handle,
@@ -148,6 +153,14 @@ impl AppState {
 
     pub fn write_session_task(&self) -> std::sync::RwLockWriteGuard<'_, Option<SessionTask>> {
         self.session_task.write().unwrap_or_else(|p| p.into_inner())
+    }
+
+    pub fn read_activity(&self) -> std::sync::RwLockReadGuard<'_, Option<ActivityGuard>> {
+        self.activity.read().unwrap_or_else(|p| p.into_inner())
+    }
+
+    pub fn write_activity(&self) -> std::sync::RwLockWriteGuard<'_, Option<ActivityGuard>> {
+        self.activity.write().unwrap_or_else(|p| p.into_inner())
     }
 
     pub fn read_settings(&self) -> std::sync::RwLockReadGuard<'_, Settings> {

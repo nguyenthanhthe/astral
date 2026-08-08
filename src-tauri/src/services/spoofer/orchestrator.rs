@@ -26,6 +26,10 @@ use crate::services::catalog::game_catalog::Catalog;
 /// Source of truth is the catalog record (its win32 executable list — the
 /// exact names Discord's scanner matches). If the game isn't in the catalog,
 /// fall back to `<game>.exe`.
+///
+/// Only referenced by the app on Windows (see `spawn_exe_simulation`);
+/// kept compiled elsewhere so the pure helpers stay testable on every OS.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub fn exe_names_for_simulation(catalog: Option<&Catalog>, game_name: &str) -> Vec<String> {
     let mut names: Vec<String> = catalog
         .and_then(|c| c.find(game_name))
@@ -42,12 +46,14 @@ pub fn exe_names_for_simulation(catalog: Option<&Catalog>, game_name: &str) -> V
 /// The catalog stores full paths (e.g. `garenaloltw/gamedata/apps/loltw/lol.exe`);
 /// Discord matches by basename, and we must not allow path traversal into the
 /// staging dir. Handles both `/` and `\` separators.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub fn sanitize_exe_name(name: &str) -> String {
     let base = name.rsplit(['/', '\\']).next().unwrap_or(name).to_string();
     ensure_exe_suffix(&base)
 }
 
 /// Normalize an executable name to end in `.exe`.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub fn ensure_exe_suffix(exe_name: &str) -> String {
     if exe_name.to_lowercase().ends_with(".exe") {
         exe_name.to_string()
@@ -58,6 +64,7 @@ pub fn ensure_exe_suffix(exe_name: &str) -> String {
 
 /// Stage + launch one simulated process per target executable. Registers
 /// every PID in `AppState.spoofer` and returns them. Non-Windows: rejected.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub fn spawn_exe_simulation(
     app: &AppHandle,
     exe_names: &[String],
