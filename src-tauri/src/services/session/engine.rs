@@ -57,6 +57,9 @@ pub struct SessionFinished {
 pub struct SessionStopped {
     pub session_id: String,
     pub reason: StopReason,
+    /// User-safe reason for a failure stop (None for user stops or finished
+    /// sessions). Surfaced verbatim in the UI error banner.
+    pub message: Option<String>,
 }
 
 /// Handle to the running session task, kept in `AppState` so `stop_session`
@@ -68,7 +71,7 @@ pub struct SessionTask {
 
 enum Outcome {
     Finished,
-    Stopped(StopReason),
+    Stopped(StopReason, Option<String>),
 }
 
 /// Start a quest session. Errors if a session is already running.
@@ -130,6 +133,7 @@ pub async fn stop(app: &AppHandle) -> Result<(), AppError> {
             SessionStopped {
                 session_id: session.id.to_string(),
                 reason: StopReason::User,
+                message: None,
             },
         );
         log::info!("session stopped: {}", session.id);
@@ -155,7 +159,12 @@ pub fn status(app: &AppHandle) -> Option<SessionStarted> {
 async fn run(app: AppHandle, session: Session, mut stop_rx: watch::Receiver<Option<StopReason>>) {
     if let Err(e) = launch(&app, &session).await {
         log::warn!("session {} launch failed: {}", session.id, e.log_detail());
-        finish(&app, &session, Outcome::Stopped(StopReason::Error)).await;
+        finish(
+            &app,
+            &session,
+            Outcome::Stopped(StopReason::Error, Some(e.message())),
+        )
+        .await;
         return;
     }
 
@@ -180,7 +189,7 @@ async fn run(app: AppHandle, session: Session, mut stop_rx: watch::Receiver<Opti
                 if result.is_ok() {
                     let reason: Option<StopReason> = *stop_rx.borrow_and_update();
                     if let Some(reason) = reason {
-                        finish(&app, &session, Outcome::Stopped(reason)).await;
+                        finish(&app, &session, Outcome::Stopped(reason, None)).await;
                     }
                 }
                 return;
@@ -278,12 +287,13 @@ async fn finish(app: &AppHandle, session: &Session, outcome: Outcome) {
             );
             log::info!("session finished: {}", session.id);
         }
-        Outcome::Stopped(reason) => {
+        Outcome::Stopped(reason, message) => {
             let _ = app.emit(
                 EVENT_SESSION_STOPPED,
                 SessionStopped {
                     session_id: session.id.to_string(),
                     reason,
+                    message,
                 },
             );
             log::info!("session stopped ({reason:?}): {}", session.id);

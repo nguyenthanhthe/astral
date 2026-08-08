@@ -44,6 +44,8 @@ export interface SessionFinished {
 export interface SessionStopped {
   session_id: string;
   reason: 'USER' | 'ERROR';
+  /** User-safe failure reason; present only when reason is ERROR. */
+  message?: string | null;
 }
 
 export const VIDEO_QUEST_DURATION_SEC = 30;

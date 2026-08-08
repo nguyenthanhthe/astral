@@ -146,13 +146,17 @@ export function App() {
         setSessionMessage('Session complete (simulated) — confirm the reward in Discord.');
       }),
       listen<SessionStopped>('session://stopped', (event) => {
+        const failed = event.payload.reason === 'ERROR';
         setIsRunning(false);
         setSelectedQuest(null);
-        setSessionMessage(
-          event.payload.reason === 'ERROR'
-            ? 'Session stopped due to an error.'
-            : 'Session stopped.',
-        );
+        if (failed) {
+          // Surface the real reason (e.g. the Windows-only spoofer) instead
+          // of leaving the panel looking silently frozen.
+          setSessionError(
+            event.payload.message ?? 'The session stopped due to an error.',
+          );
+        }
+        setSessionMessage(failed ? 'Session stopped due to an error.' : 'Session stopped.');
       }),
     ];
     subs.forEach((sub) =>
@@ -231,7 +235,7 @@ export function App() {
       {sessionError && (
         <div className="error-banner" role="alert">
           <AlertCircle size={16} aria-hidden="true" />
-          <span>Failed to start the session.</span>
+          <span>{sessionError}</span>
           <span className="error-banner__actions">
             <Button variant="ghost" size="sm" onClick={() => setSessionError(null)}>
               Dismiss
