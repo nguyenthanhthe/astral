@@ -3,6 +3,11 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+- **Game search misses punctuation, extra words & executables**: catalog search previously only did a case-insensitive substring match on the exact stored name, so queries like "ragnarok the new world" (stored as `Ragnarok: The New World`) or "league of legends classic" (stored as `League of Legends`) returned nothing. Search now normalises punctuation/whitespace and matches ranked tiers: exact name > name contains query > query contains name (whole-token window) > token subset > executable name (`game.exe`, `lol.exe`). Verified against the live 23,907-game detectable catalog.
+
 ## [2.11.0] - 2026-08-08
 
 ### Fixed
