@@ -57,6 +57,17 @@ Grab the latest release from **[GitHub Releases](https://github.com/nguyenthanht
 - **Windows**: `astral_<version>_x64-setup.exe` (NSIS installer) or the `.msi`
 - **macOS (experimental, unsigned)**: `astral_<version>_universal.dmg`
 
+### Install from the terminal
+
+One-liner installers pull the latest release and install it for you:
+
+| OS | Command |
+| :-- | :-- |
+| **Linux (Ubuntu/Debian)** | `bash <(curl -sSL https://raw.githubusercontent.com/nguyenthanhthe/astral/main/install/install.sh)` |
+| **macOS** | `bash <(curl -sSL https://raw.githubusercontent.com/nguyenthanhthe/astral/main/install/install.sh)` |
+| **Windows** | `irm https://raw.githubusercontent.com/nguyenthanhthe/astral/main/install/install.ps1 \| iex` |
+
+The scripts live in [`install/`](install/) — review them before running (Linux installs the `.deb` via `dpkg`, macOS copies `astral.app` into `/Applications`, Windows installs the `.msi` via `msiexec`).
 ### Usage
 
 1. Open Discord Desktop and accept a quest (e.g. *Arknights: Endfield*, *Where Winds Meet*, *Fortnite*, *EVE Online*).
