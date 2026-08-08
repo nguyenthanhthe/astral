@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Curated quests carried fake Discord client ids**: the built-in Endfield / Where Winds Meet / Fortnite / EVE quests used placeholder application ids that Discord rejects with `4000 Invalid Client ID`, so activity-only simulation could never work for them. The ids are now the real catalog values, and `fetch_active_quests` upgrades each quest to the current catalog `client_id` when it is loaded.
 - **Handshake errors are surfaced instead of swallowed**: the IPC handshake treated an ERROR frame (bad app id) as a READY with an "Unknown" user, so the real failure appeared later as a confusing `Broken pipe`. It now validates the response and reports "Discord rejected handshake (code …)".
 - **Cleanup no longer trips Discord's "did not handshake"**: `clear_activity` wrote a frame on a fresh connection without handshaking; it now handshakes first.
+- **macOS can reach Discord's RPC socket**: the IPC candidates now include `~/Library/Application Support/discord/sock` (where the macOS Discord client exposes its socket), with `/tmp/discord-ipc-0` kept as a fallback for older builds. Previously macOS only probed `/tmp/discord-ipc-0`, so every quest failed to connect.
 
 ## [2.12.0] - 2026-08-08
 

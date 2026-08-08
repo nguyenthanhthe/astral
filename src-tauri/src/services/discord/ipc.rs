@@ -37,12 +37,27 @@ pub struct HandshakeResult {
     pub user_id: String,
 }
 
+/// macOS socket candidates, in priority order. Discord for macOS exposes its
+/// RPC socket in the app's Application Support directory; older builds fall
+/// back to the XDG-style `/tmp/discord-ipc-0`.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn macos_socket_candidates(home: Option<&std::ffi::OsStr>) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(home) = home {
+        candidates.push(
+            PathBuf::from(home).join("Library/Application Support/discord/sock"),
+        );
+    }
+    candidates.push(PathBuf::from("/tmp/discord-ipc-0"));
+    candidates
+}
+
 /// Candidate paths for the Discord IPC Unix domain socket, in priority order.
 fn unix_socket_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
     #[cfg(target_os = "macos")]
     {
-        candidates.push(PathBuf::from("/tmp/discord-ipc-0"));
+        candidates.extend(macos_socket_candidates(std::env::var_os("HOME").as_deref()));
     }
     #[cfg(target_os = "linux")]
     {
@@ -302,6 +317,23 @@ mod tests {
     fn decode_rejects_truncated_header() {
         let mut cursor = Cursor::new(vec![0u8, 1, 2]);
         assert!(decode_frame(&mut cursor).is_err());
+    }
+
+    #[test]
+    fn macos_candidates_prefer_application_support_sock() {
+        let candidates =
+            macos_socket_candidates(Some(std::ffi::OsStr::new("/Users/alice")));
+        assert!(
+            candidates[0]
+                .to_string_lossy()
+                .ends_with("Library/Application Support/discord/sock"),
+            "got: {}",
+            candidates[0].display()
+        );
+        assert_eq!(candidates[1], PathBuf::from("/tmp/discord-ipc-0"));
+
+        let without_home = macos_socket_candidates(None);
+        assert_eq!(without_home, vec![PathBuf::from("/tmp/discord-ipc-0")]);
     }
 
     #[test]
