@@ -59,13 +59,25 @@ Grab the latest release from **[GitHub Releases](https://github.com/nguyenthanht
 
 ### Install from the terminal
 
-One-liner installers pull the latest release and install it for you:
+One-liner installers pull the latest release and install it for you (each command below has a one-click **copy** button in GitHub):
 
-| OS | Command |
-| :-- | :-- |
-| **Linux (Ubuntu/Debian)** | `bash <(curl -sSL https://raw.githubusercontent.com/nguyenthanhthe/astral/main/install/install.sh)` |
-| **macOS** | `bash <(curl -sSL https://raw.githubusercontent.com/nguyenthanhthe/astral/main/install/install.sh)` |
-| **Windows** | `irm https://raw.githubusercontent.com/nguyenthanhthe/astral/main/install/install.ps1 \| iex` |
+**Ubuntu / Debian**
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/nguyenthanhthe/astral/master/install/install.sh)
+```
+
+**macOS**
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/nguyenthanhthe/astral/master/install/install.sh)
+```
+
+**Windows (PowerShell)**
+
+```powershell
+irm https://raw.githubusercontent.com/nguyenthanhthe/astral/master/install/install.ps1 | iex
+```
 
 The scripts live in [`install/`](install/) — review them before running (Linux installs the `.deb` via `dpkg`, macOS copies `astral.app` into `/Applications`, Windows installs the `.msi` via `msiexec`).
 ### Usage
