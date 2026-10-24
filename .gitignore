@@ -30,3 +30,4 @@ Thumbs.db
 # Local agent tooling (opencode / AionUi)
 .opencode/
 .agents/
+.mimosa/
