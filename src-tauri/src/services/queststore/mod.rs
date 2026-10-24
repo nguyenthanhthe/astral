@@ -82,10 +82,8 @@ impl CustomQuest {
             }
         }
         if self.kind == "exe" {
-            validate_exe_name(
-                self.exe_name.as_deref().unwrap_or_default(),
-            )
-            .map_err(AppError::Validation)?;
+            validate_exe_name(self.exe_name.as_deref().unwrap_or_default())
+                .map_err(AppError::Validation)?;
         }
         if !(MIN_DURATION_SEC..=MAX_DURATION_SEC).contains(&self.duration_secs) {
             return Err(AppError::Validation(format!(
@@ -134,9 +132,10 @@ impl CustomQuest {
             "stream" => LaunchTarget::Stream,
             "video" => LaunchTarget::Video,
             _ => LaunchTarget::Exe {
-                exe_name: self.exe_name.clone().unwrap_or_else(|| {
-                    format!("{}.exe", self.game_name.replace([':', ' '], ""))
-                }),
+                exe_name: self
+                    .exe_name
+                    .clone()
+                    .unwrap_or_else(|| format!("{}.exe", self.game_name.replace([':', ' '], ""))),
             },
         };
         let reward = self
@@ -171,7 +170,10 @@ fn validate_exe_name(name: &str) -> Result<(), String> {
         return Err("Executable name must end with .exe.".into());
     }
     let forbidden = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
-    if name.chars().any(|c| forbidden.contains(&c) || c.is_control()) {
+    if name
+        .chars()
+        .any(|c| forbidden.contains(&c) || c.is_control())
+    {
         return Err("Executable name must be a plain file name (no paths).".into());
     }
     Ok(())

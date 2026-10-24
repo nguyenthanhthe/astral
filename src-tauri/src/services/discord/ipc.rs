@@ -44,9 +44,7 @@ pub struct HandshakeResult {
 fn macos_socket_candidates(home: Option<&std::ffi::OsStr>) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
     if let Some(home) = home {
-        candidates.push(
-            PathBuf::from(home).join("Library/Application Support/discord/sock"),
-        );
+        candidates.push(PathBuf::from(home).join("Library/Application Support/discord/sock"));
     }
     candidates.push(PathBuf::from("/tmp/discord-ipc-0"));
     candidates
@@ -321,8 +319,7 @@ mod tests {
 
     #[test]
     fn macos_candidates_prefer_application_support_sock() {
-        let candidates =
-            macos_socket_candidates(Some(std::ffi::OsStr::new("/Users/alice")));
+        let candidates = macos_socket_candidates(Some(std::ffi::OsStr::new("/Users/alice")));
         assert!(
             candidates[0]
                 .to_string_lossy()

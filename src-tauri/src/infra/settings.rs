@@ -58,14 +58,14 @@ pub fn load(app_handle: &AppHandle) -> Settings {
 pub fn save(app_handle: &AppHandle, settings: &Settings) -> Result<(), AppError> {
     let path = settings_path(app_handle);
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            AppError::Internal(format!("settings dir create failed: {e}"))
-        })?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| AppError::Internal(format!("settings dir create failed: {e}")))?;
     }
     let stored = StoredSettings::from(settings);
     let json = serde_json::to_string_pretty(&stored)
         .map_err(|e| AppError::Internal(format!("settings serialize failed: {e}")))?;
-    std::fs::write(&path, json).map_err(|e| AppError::Internal(format!("settings write failed: {e}")))?;
+    std::fs::write(&path, json)
+        .map_err(|e| AppError::Internal(format!("settings write failed: {e}")))?;
     Ok(())
 }
 

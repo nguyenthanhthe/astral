@@ -127,9 +127,7 @@ fn custom_quest_to_wire(
     catalog: Option<&Catalog>,
 ) -> DiscordQuest {
     let domain = quest.to_domain();
-    let verified = catalog
-        .and_then(|c| c.find(&quest.game_name))
-        .is_some();
+    let verified = catalog.and_then(|c| c.find(&quest.game_name)).is_some();
     DiscordQuest {
         id: domain.id.to_string(),
         title: domain.title.clone(),
@@ -387,9 +385,14 @@ async fn start_session(
         .duration_secs
         .filter(|secs| (MIN_OVERRIDE_SEC..=MAX_OVERRIDE_SEC).contains(secs))
         .map(std::time::Duration::from_secs);
-    session_engine::start_with(&app, quest_from_wire(&quest), duration_override, demo.unwrap_or(false))
-        .await
-        .map(|_| ())
+    session_engine::start_with(
+        &app,
+        quest_from_wire(&quest),
+        duration_override,
+        demo.unwrap_or(false),
+    )
+    .await
+    .map(|_| ())
 }
 
 /// Stop the running session (idempotent when nothing is running).

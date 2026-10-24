@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "stop-20261023T200052727Z-10288-a6f9c6b0ef94",
+  "runId": "20261023T200052727Z-10288-a6f9c6b0ef94",
+  "runStatus": "completed",
+  "coverage": {
+    "status": "complete",
+    "reasons": [
+      {
+        "code": "baseline_partial",
+        "stage": "baseline",
+        "target": ".",
+        "detail": "baseline capture had enumeration or snapshot errors",
+        "affectsCompletion": false
+      }
+    ]
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "Stop"
+  },
+  "revision": "a4c974c6a9cad27ca4b3b9ca244c1cd0b139963f",
+  "diffHash": "fab0bb519df30aec3dc33dec665062f2a2ef410f23e60b4b120c882c6caa9b00",
+  "rulesVersion": "unavailable",
+  "sessionHash": "c834511c7271417132a135963a6b9dc210c25928fc199cee5b4a80c8ad0f464f",
+  "reportRef": ".mimosa/reports/task-review-session_fa7caaaae1f6c1f7590420791cba4995-20261023T200052727Z-10288-a6f9c6b0ef94.json",
+  "events": [],
+  "observedFindingIds": [
+    "mimosa-f7c7d4245be1750c157831e8"
+  ],
+  "verifiedFiles": [
+    {
+      "file": "src/services/spoofer/orchestrator.rs",
+      "direct": "complete",
+      "projectContext": "partial"
+    }
+  ],
+  "recordedAt": "2026-10-23T20:00:53.258Z"
+}

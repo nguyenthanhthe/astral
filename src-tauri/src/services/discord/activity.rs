@@ -55,8 +55,7 @@ impl Drop for ActivityGuard {
 /// hold the socket open (re-arming every `ACTIVITY_REFRESH_INTERVAL`) until
 /// the returned guard is stopped.
 pub fn hold_activity(req: ActivityRequest) -> Result<ActivityGuard, String> {
-    let mut stream =
-        ipc::open().map_err(|e| format!("Failed to connect to Discord IPC: {e}"))?;
+    let mut stream = ipc::open().map_err(|e| format!("Failed to connect to Discord IPC: {e}"))?;
     ipc::handshake(&mut stream, &req.client_id)
         .map_err(|e| format!("IPC handshake failed: {e}"))?;
 
