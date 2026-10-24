@@ -3,16 +3,28 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [2.13.0] - 2026-10-25
 
 ### Added
+- **Frontend redesign — "Starlight Observatory"**: a full visual redesign of the app shell, quest list, session panel and every component (the old Discord-gray world is retired). New deep-space ink surfaces with starlit top edges, a single starlight-cyan accent for actions/progress, reward gold reserved for orbs, and a signature **Orbit** progress ring with a cyan→violet gradient stroke and comet-head dot. Quest rows gain a catalog-verified tick, the session panel gains a constellation idle state, and demo mode becomes a proper toggle switch. Documented in the rewritten `DESIGN.md`, with product truth captured in `PRODUCT.md`.
+- **Keyboard shortcuts**: `/` focuses quest search from anywhere and `Escape` clears it; a `/` hint is shown inside the empty search box.
+- **Design-agent skills installed**: `impeccable` (design direction, critique, polish) and the updated `agent-skills` collection now live under `.agents/skills/` for future frontend work.
+
+### Changed
+- **Settings persist to disk**: user settings round-trip through `settings.json` in the app data dir instead of living only in memory; the **Demo mode** preference moved from webview `localStorage` into backend settings, so it now survives reloads, restarts and data wipes.
+- **Search misses no longer auto-create a placeholder quest**: typing a name that matches nothing used to fabricate a "Custom Quest: …" entry (with a guessed `.exe` and a default 700-Orb reward) derived from raw search text. Explicit quest creation now belongs solely to Quest Mirror, which validates every field before persisting.
+
+### Fixed
+- **Catalog-generated quest executables are sanitized**: a network catalog game without a listed executable had its name concatenated straight into `<name>.exe`, which one hop later became a file path (path traversal if the name contained separators). The generated name now goes through `sanitize_exe_name` — plain basename only, Windows-forbidden characters stripped.
+
+### Added (carried over from the 2.12.x line, unreleased until now)
 - **Quest Mirror (real quest discovery, token-free)**: quests you see in your own Discord client can now be mirrored into Astral and persisted on disk (`custom_quests.json` in the app data dir) — title, kind (`exe`/`console`/`stream`/`video`), game, real duration and reward. Mirrored quests join the quest list next to the curated presets, get their `client_id` resolved (and `catalog_verified` flagged) against the detectable-games catalog, and their real duration drives the session engine. The account token is never read; validation rejects path-like exe names, out-of-range durations/rewards and non-numeric client ids.
 - **Quest video as a first-class target**: `LaunchTarget::Video` (`[Video Quest]` marker) runs over the Discord activity IPC like console/stream, and video targets default to the 30-second quest duration.
 - **Demo mode (display-only orb simulation)**: a "Demo" toggle in the Session panel runs any session purely locally — the progress ring ticks exactly the same, but no spoofer process is spawned and Discord IPC is never touched. Finishing a demo session shows a reward overlay (`+N Orbs`) explicitly captioned as simulated; useful for demos and presentations.
 - **Bug bounty guide**: `docs/bug-bounty-discord.md` documents Discord's (Bugcrowd-hosted) program scope, rules, safe lab setup and a report template.
 - **RE practice walkthrough**: `docs/re-practice-astral.md` documents analyzing Astral's own binary with rea MCP / Ghidra headless (string anchoring pitfalls on Rust binaries, DWARF symbol anchoring, replay commands).
 
-### Fixed
+### Fixed (carried over from the 2.12.x line, unreleased until now)
 - **Every .exe quest is now runnable, catalog or not**: the session engine simulates the quest's own executable first (mirrored quests carry the real exe name), then the catalog's win32 list, then the `<game>.exe` fallback. `sanitize_exe_name` now also strips Windows-forbidden filename characters (`:` in "Game: Subtitle" previously made staging fail and killed the session).
 - **Rich Presence now persists for a whole session**: quest sessions previously sent a one-shot `SET_ACTIVITY` over a socket that closed immediately, so Discord cleared the presence ~300 ms later and no progress could be credited. The engine now holds one RPC connection open for the session's lifetime, re-arms the `[start, end]` window every 45 s, and sends `CLEAR_ACTIVITY` on finish/stop. Verified live on Linux: Discord accepts the activity and the socket stays open across refreshes.
 - **Curated quests carried fake Discord client ids**: the built-in Endfield / Where Winds Meet / Fortnite / EVE quests used placeholder application ids that Discord rejects with `4000 Invalid Client ID`, so activity-only simulation could never work for them. The ids are now the real catalog values, and `fetch_active_quests` upgrades each quest to the current catalog `client_id` when it is loaded.

@@ -1,51 +1,60 @@
-/* Astral design tokens — see DESIGN.md for the brand contract. */
+/* Astral design tokens — "Starlight Observatory" (see DESIGN.md). */
 :root {
   color-scheme: dark;
 
   /* Surfaces */
-  --bg-base: #111214;
-  --bg-raised: #1e1f22;
-  --bg-overlay: #2b2d31;
-  --bg-sunken: #0d0e10;
-  --bg-hover: rgba(255, 255, 255, 0.03);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: #3f4147;
+  --bg-base: #0a0c12;
+  --bg-raised: #10131c;
+  --bg-overlay: #171c28;
+  --bg-sunken: #070910;
+  --bg-row: #121623;
+  --bg-hover: rgba(150, 180, 255, 0.05);
+  --border-hairline: rgba(150, 180, 255, 0.09);
+  --border-default: #283043;
+  --edge-highlight: rgba(255, 255, 255, 0.045);
 
   /* Brand */
-  --brand: #5865f2;
-  --brand-hover: #4752c4;
-  --brand-soft: rgba(88, 101, 242, 0.12);
-  --brand-ring: rgba(88, 101, 242, 0.3);
+  --brand: #4cc2ff;
+  --brand-hover: #6fd0ff;
+  --brand-press: #2ba8ea;
+  --brand-soft: rgba(76, 194, 255, 0.1);
+  --brand-ring: rgba(76, 194, 255, 0.35);
+  --brand-ink: #071018; /* text on bright accent */
+  --nebula: #8b7cf6; /* gradient partner only — never a flat fill */
 
   /* Text */
-  --text-header: #f2f3f5;
-  --text-normal: #dbdee1;
-  --text-muted: #949ba4;
-  --text-disabled: #5c6066;
-  --text-link: #00a8fc;
+  --text-header: #eef2fa;
+  --text-normal: #c3cad9;
+  --text-muted: #8a93a6;
+  --text-disabled: #5b6376;
 
   /* Status */
-  --success: #23a55a;
-  --success-soft: rgba(35, 165, 90, 0.12);
-  --success-border: rgba(35, 165, 90, 0.35);
+  --success: #3ecf8e;
+  --success-soft: rgba(62, 207, 142, 0.1);
+  --success-border: rgba(62, 207, 142, 0.32);
   --warning: #f0b232;
   --warning-soft: rgba(240, 178, 50, 0.1);
   --warning-border: rgba(240, 178, 50, 0.3);
-  --danger: #f23f43;
-  --danger-hover: #c72e34;
-  --offline: #80848e;
-  --offline-soft: rgba(128, 132, 142, 0.12);
-  --offline-border: rgba(128, 132, 142, 0.35);
+  --danger: #f25757;
+  --danger-hover: #ff6b6b;
+  --danger-ink: #160708;
+  --offline: #8a93a6;
+  --offline-soft: rgba(138, 147, 166, 0.1);
+  --offline-border: rgba(138, 147, 166, 0.3);
+  --reward-gold: #f0c649;
+  --reward-gold-soft: rgba(240, 198, 73, 0.12);
+  --reward-gold-border: rgba(240, 198, 73, 0.35);
 
   /* Interaction */
-  --btn-secondary: #4e5058;
-  --btn-secondary-hover: #6d6f78;
-  --progress-track: rgba(255, 255, 255, 0.08);
+  --btn-secondary: #1c2333;
+  --btn-secondary-hover: #242d42;
+  --progress-track: rgba(150, 180, 255, 0.1);
 
   /* Radii */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
   --radius-full: 999px;
 
   /* Spacing scale (4px base) */
@@ -64,11 +73,11 @@
     sans-serif;
   --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
 
+  --text-micro: 11px;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-base: 14px;
-  --text-md: 15px;
-  --text-lg: 18px;
+  --text-lg: 16px;
 
   /* Motion */
   --duration-fast: 120ms;

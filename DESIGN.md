@@ -1,64 +1,66 @@
-# Astral Design System
+# Astral Design System — "Starlight Observatory"
 
 > Category: Productivity & Desktop Tool
-> Discord Quest & Activity automation. Dark-first, Discord-native feel, calm and
-> precise. The UI exists to answer one question at a glance: "what is running,
-> and how far along is it?"
+> Redesign (v2.13.0). The previous Discord-gray world is retired: Astral is
+> not a Discord clone, it is an **observatory console** — a dark instrument
+> panel pointed at Discord's quest sky. One accent family (starlight cyan)
+> means *action & progress*; one reserved gold means *orbs (rewards)*.
+> Everything else is deep-space ink so the running session is the brightest
+> thing on screen.
 
 ## 1. Visual Theme & Atmosphere
 
-Astral is a companion tool for Discord's Quest program. The surface is
-dark-first and quiet: three-step depth (`#111214` → `#1e1f22` → `#2b2d31`) so
-panels separate by tone, not shadow. The signature **Blurple** (`#5865f2`) —
-Discord's own brand color — is reserved for the one thing that matters: the
-primary action. Everything else is neutral so the connection pill and the
-running quest stay instantly scannable.
+Deep-space ink surfaces with a blue cast (never pure black, never
+gray-on-gray): `#0a0c12` → `#10131c` → `#171c28`. Depth is carried by
+**starlit edges** — each panel has a hairline border plus a 1px inner top
+highlight, as if lit from above — not by drop shadows.
 
-Typography is a system UI stack (no network font dependency): geometric,
-legible at 13–15px, with a monospace stack reserved for numbers (countdowns,
-percentages, process names). Headings step incrementally; meta text is 12px
-muted. Density is compact like a chat client — nothing decorative, every pixel
-carries information.
+The signature moment is the **Orbit**: the session progress ring renders as
+an orbital arc with a cyan→violet gradient stroke and a comet-head dot at its
+tip, glowing softly while the session runs. A quiet constellation SVG anchors
+the empty session state. Reward moments use the reserved gold, never cyan.
 
-Shapes: 8px cards, 4–6px controls, full pills for status. 1px dividers at low
-alpha. No glow, no heavy shadows, no gradients-as-decoration. The brand mark
-uses one flat blurple star.
+Typography stays on the system stack (no network fonts). Numerals —
+countdowns, percentages, process names — are mono and never shift width while
+ticking. Section labels are 11px uppercase micro-caps with 0.10em tracking.
 
-**Key Characteristics:**
-- Dark surfaces `#111214` / `#1e1f22` / `#2b2d31` (3-step depth)
-- Single saturated accent: Blurple `#5865f2`, used only for primary actions
-- System font stack; mono for numbers and process identifiers
-- Compact density; status visible at a glance (pill top-right)
-- Semantic status colors: online green, idle yellow, danger red, offline gray
-- Pixel-snapped 1px dividers at low alpha; flat surfaces, no glow
+**Key characteristics:**
+- Deep-space ink surfaces `#0a0c12` / `#10131c` / `#171c28` with starlit top edges
+- Single interactive accent: starlight cyan `#4cc2ff`; violet `#8b7cf6` only inside gradients
+- Reward gold `#f0c649` reserved for orbs/rewards — never for actions
+- Orbit ring with gradient stroke + comet head; constellation empty state
+- Compact density; mono numerals; text always carries status, never color alone
 
 ## 2. Color Palette & Roles
 
 ### Brand
-- **Blurple** `#5865f2` — primary actions, focus, selected state
-- **Blurple Hover** `#4752c4` — hover/active for primary actions
-- **Blurple Soft** `rgba(88, 101, 242, 0.12)` — selected-row wash, tags
+- **Starlight** `#4cc2ff` — primary actions, focus, progress, selected state
+- **Starlight Hover** `#6fd0ff` — hover for accent surfaces
+- **Starlight Press** `#2ba8ea` — active/pressed
+- **Starlight Soft** `rgba(76, 194, 255, 0.10)` — selected-row wash, tags
+- **Nebula Violet** `#8b7cf6` — gradient partner only (orbit stroke, reward glow); never a flat UI fill
 
 ### Surfaces (dark, default)
-- **Background Base** `#111214` — window background
-- **Background Raised** `#1e1f22` — panels, cards
-- **Background Overlay** `#2b2d31` — nested surfaces, inputs, hover rows
-- **Background Sunken** `#0d0e10` — well-inset areas, progress track
-- **Border Subtle** `rgba(255, 255, 255, 0.06)` — dividers
-- **Border Default** `#3f4147` — solid card/input borders
+- **Background Base** `#0a0c12` — window background
+- **Background Raised** `#10131c` — panels, cards
+- **Background Overlay** `#171c28` — nested surfaces, inputs, hover rows
+- **Background Sunken** `#070910` — wells, progress track, telemetry block
+- **Border Hairline** `rgba(150, 180, 255, 0.09)` — panel borders, dividers
+- **Border Default** `#283043` — controls, inputs
+- **Edge Highlight** `rgba(255, 255, 255, 0.045)` — 1px inset top edge on panels
 
 ### Text
-- **Header Primary** `#f2f3f5` — page/brand headings
-- **Text Normal** `#dbdee1` — body
-- **Text Muted** `#949ba4` — meta, timestamps, hints
-- **Text Disabled** `#5c6066` — inactive states
-- **Text Link** `#00a8fc` — hyperlinks
+- **Header Primary** `#eef2fa` — page/brand headings, primary row text
+- **Text Normal** `#c3cad9` — body
+- **Text Muted** `#8a93a6` — meta, timestamps, hints
+- **Text Disabled** `#5b6376` — inactive states
+- **Text Link** `#4cc2ff` — links (shares the accent role)
 
 ### Status & Semantic
-- **Success** `#23a55a` — connected, completed
-- **Warning** `#f0b232` — idle, degraded
-- **Danger** `#f23f43` — disconnected-critical, destructive
-- **Info** `#5865f2` — neutral emphasis, running session
+- **Success** `#3ecf8e` — connected, completed
+- **Warning** `#f0b232` — idle, checking, degraded
+- **Danger** `#f25757` — errors, destructive
+- **Reward Gold** `#f0c649` — orb amounts, reward chips, celebration
 
 ## 3. Typography Rules
 
@@ -72,74 +74,80 @@ uses one flat blurple star.
 
 | Role | Size | Weight | Line Height | Notes |
 |------|------|--------|-------------|-------|
-| Brand / Page title | 15px | 600 | 1.25 | Header left, with version |
-| Section title | 13px | 600 | 1.25 | Uppercase, muted, letterspaced |
-| Body / Quest name | 15px | 500 | 1.3 | Primary row text |
-| Meta / caption | 12px | 400 | 1.3 | Muted |
-| Mono number | 13px | 500 | 1.2 | Countdown, percentage, target |
+| Brand / Page title | 16px | 600 | 1.25 | Header left, title-case "Astral" |
+| Orbit numeral | 32px | 500 | 1.0 | Mono, ring center |
+| Body / Quest name | 14px | 550→500 | 1.35 | Primary row text |
+| Meta / caption | 12px | 400 | 1.4 | Muted |
+| Micro label | 11px | 600 | 1.2 | Uppercase, 0.10em tracking, muted |
+| Mono value | 13px | 500 | 1.2 | Countdown, telemetry values |
 
 ### Principles
-- Weight + color (muted vs normal) carry hierarchy — no invented sizes.
-- Body never below 13px; density comes from line-height, not size.
+- Hierarchy comes from weight, color, and case — no invented sizes below 11px.
+- Micro-caps are for section labels only, never for body copy or buttons.
 - Numbers always mono so they stop jumping width during countdown.
 
 ## 4. Component Stylings
 
+### Panels
+- Background `#10131c`, border 1px hairline, radius 12px
+- Starlit edge: `inset 0 1px 0 rgba(255,255,255,0.045)`
+- Padding 16–20px; internal gap 12–16px
+
 ### Buttons
-- **Primary**: bg `#5865f2`, text white, 4px radius, padding 8px 16px, hover `#4752c4`
-- **Secondary**: bg `#4e5058`, text `#dbdee1`, hover `#6d6f78`
-- **Ghost**: transparent, text `#dbdee1`, hover bg `rgba(255,255,255,0.06)`
-- **Danger**: bg `#f23f43`, text white, hover `#c72e34`
-- Disabled: bg `rgba(255,255,255,0.08)`, text `#5c6066`, no pointer events
-- Focus: 2px outline `#5865f2`, offset 2px
+- **Primary**: bg `#4cc2ff`, text `#071018` (dark on bright accent), radius 8px, padding 8px 16px, hover `#6fd0ff`, active `#2ba8ea`
+- **Secondary**: bg `#1c2333`, border 1px `#283043`, text `#c3cad9`, hover bg `#242d42`
+- **Ghost**: transparent, text `#c3cad9`, hover bg `rgba(150,180,255,0.07)`
+- **Danger**: bg `#f25757`, text `#160708`, hover `#ff6b6b`
+- Disabled: bg `rgba(150,180,255,0.06)`, text `#5b6376`, no pointer events
+- Focus: 2px outline `#4cc2ff`, offset 2px
 
 ### Inputs
-- Background `#1e1f22`, border 1px `#3f4147`, radius 4px, padding 8px 12px
-- Placeholder `#5c6066`; focus border `#5865f2` + 2px ring at 30% alpha
-- Clear button inside right edge, ghost icon 16px
+- Background `#171c28`, border 1px `#283043`, radius 8px, padding 8px 12px
+- Placeholder `#5b6376`; focus border `#4cc2ff` + 2px ring at 35% alpha
 
 ### Quest Rows
-- Background `#1e1f22`; hover `rgba(255,255,255,0.03)`; radius 8px; border 1px `rgba(255,255,255,0.06)`
-- Selected/running: border `#5865f2`, bg `rgba(88,101,242,0.08)`
-- Left: name (15px/500) + meta (12px muted). Right: reward + progress label
-- Progress bar: 4px track `rgba(255,255,255,0.08)`, fill blurple, radius full
+- Background `#121623`; hover `rgba(150,180,255,0.05)`; radius 10px; border 1px hairline
+- Selected/running: border `#4cc2ff`, bg `rgba(76,194,255,0.07)`
+- Left: name (14px/500 header) + meta (12px muted). Right: reward in gold + mono progress label
+- Verified tick: 12px check in success color next to the name when `catalog_verified`
+- Progress bar: 3px track `rgba(150,180,255,0.10)`, gradient fill cyan→violet, radius full
 
 ### Status Pill
-- Connected: bg `rgba(35,165,90,0.12)`, border `rgba(35,165,90,0.35)`, dot `#23a55a`
-- Checking: bg `rgba(240,178,50,0.10)`, border `rgba(240,178,50,0.3)`, dot `#f0b232`
-- Disconnected: bg `rgba(128,132,142,0.12)`, border `rgba(128,132,142,0.35)`, dot `#80848e`
+- Connected: bg `rgba(62,207,142,0.10)`, border `rgba(62,207,142,0.32)`, dot `#3ecf8e`
+- Checking: bg `rgba(240,178,50,0.10)`, border `rgba(240,178,50,0.30)`, dot `#f0b232`
+- Disconnected: bg `rgba(138,147,166,0.10)`, border `rgba(138,147,166,0.30)`, dot `#8a93a6`
 - Dot 8px, no glow; text 12px 500
 
-### Cards / Panels
-- Background `#1e1f22`, border 1px `rgba(255,255,255,0.06)`, radius 8px
-- Padding 16–20px; internal gap 12–16px
+### Toggle Switch (demo mode)
+- 32×18px track, radius full; off: `#1c2333` + border `#283043`; on: `#4cc2ff`
+- 14px knob, white, 150ms slide; label 12px 500
 
 ## 5. Spacing & Layout
 
 - **Base unit**: 4px. Scale: 4, 8, 12, 16, 20, 24, 32, 40.
 - Two-column workspace (≥ 880px): quest list (flex 3) + session panel (fixed 320px)
 - Below 880px: single column, session panel after list
-- Window padding 16px; header 56px with bottom 1px divider
-- Progress ring 128px on desktop, 112px on small windows
+- Window padding 16px; header 52px with bottom hairline
+- Orbit ring 148px on desktop, 124px on small windows
 
 ## 6. Motion
 
 - Hover: 120ms `ease-out`
-- Ring stroke: 300ms `ease-out` (never animated on `prefers-reduced-motion`)
+- Orbit stroke: 300ms `ease-out`; comet head carries a soft 6px glow (opacity 0.5) while running
 - Status transitions: 200ms fade
-- No looping, pulsing, or marquee animations
+- Reward overlay: 220ms pop with gold orb-rise; disabled on `prefers-reduced-motion`
+- No looping, pulsing, or marquee animations outside the reward overlay
 
 ## 7. Usage Guardrails
 
-- Blurple is for the *primary* action and active state only; never decorate
-  headings, badges, or idle UI with it.
-- Color never carries information alone — every status has text or an icon
-  (e.g. the pill says "Connected · username", not just a green dot).
-- No marketing numerals ("23,800+"), no "Celestial"-style flavor names, no
-  claims the UI does not actually perform.
+- Cyan is for *action and progress* only; never decorate headings, badges, or
+  idle UI with it. Violet never appears as a flat fill.
+- Gold appears only where orbs/rewards are; if the element is not about a
+  reward, it is not gold.
+- Color never carries information alone — every status has text or an icon.
+- No marketing numerals, no flavor names, no claims the UI does not perform.
 - Every interactive element must be a real button/input; clickable divs are
   banned. Keyboard focus must be visible.
-- Numbers and durations render in the mono stack; nothing may jump width while
-  a countdown ticks.
-- Preserve the dark shell and compact density; a light theme or balloon-radius
-  treatment breaks the Discord-native feel.
+- Numbers and durations render in the mono stack.
+- Preserve the dark shell and compact density; a light theme or balloon
+  radii break the instrument-panel feel.

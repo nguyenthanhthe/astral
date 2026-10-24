@@ -1,4 +1,4 @@
-import { Award } from 'lucide-react';
+import { Award, BadgeCheck } from 'lucide-react';
 import {
   type DiscordQuest,
   questTargetLabel,
@@ -36,7 +36,17 @@ function QuestRow({
         onClick={() => onSelect(quest)}
       >
         <span className="quest-row__main">
-          <span className="quest-row__name">{quest.game_name}</span>
+          <span className="quest-row__name">
+            <span className="quest-row__name-text">{quest.game_name}</span>
+            {quest.catalog_verified && (
+              <span
+                className="quest-row__verified"
+                title="Backed by Discord's detectable-game catalog"
+              >
+                <BadgeCheck size={13} aria-label="Catalog verified" />
+              </span>
+            )}
+          </span>
           <span className="quest-row__meta">
             {quest.title} · Target <code>{questTargetLabel(quest.exe_name)}</code>
           </span>

@@ -6,10 +6,12 @@ import {
   checkDiscordSession,
   checkForUpdate,
   fetchActiveQuests,
+  getSettings,
   getSessionStatus,
   listCustomQuests,
   optimizeRam,
   searchDiscordGames,
+  setSettings,
   startSession as invokeStartSession,
   stopSession as invokeStopSession,
 } from './lib/tauri';
@@ -29,6 +31,7 @@ import { QuestList } from './components/QuestList';
 import { RewardOverlay } from './components/RewardOverlay';
 import { SearchInput } from './components/SearchInput';
 import { SessionPanel } from './components/SessionPanel';
+import { Switch } from './components/Switch';
 
 const DEFAULT_QUESTS: DiscordQuest[] = [];
 
@@ -37,8 +40,6 @@ const DISCONNECTED_STATUS: DiscordStatus = {
   username: 'Disconnected',
   user_id: '',
 };
-
-const DEMO_MODE_KEY = 'astral_demo_mode';
 
 export function App() {
   const [query, setQuery] = useState('');
@@ -61,7 +62,8 @@ export function App() {
 
   // Demo mode: sessions run purely locally — the progress ring and reward
   // overlay are display-only, with no spoofer process and no Discord traffic.
-  const [demoMode, setDemoMode] = useState(() => localStorage.getItem(DEMO_MODE_KEY) === '1');
+  // Persisted by the backend (`settings.json`), not webview storage.
+  const [demoMode, setDemoMode] = useState(false);
   const [runningDemo, setRunningDemo] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [customQuests, setCustomQuests] = useState<DiscordQuest[]>([]);
@@ -78,12 +80,9 @@ export function App() {
     selectedQuestRef.current = selectedQuest;
   }, [selectedQuest]);
 
-  const toggleDemoMode = useCallback(() => {
-    setDemoMode((prev) => {
-      const next = !prev;
-      localStorage.setItem(DEMO_MODE_KEY, next ? '1' : '0');
-      return next;
-    });
+  const toggleDemoMode = useCallback((next: boolean) => {
+    setDemoMode(next);
+    setSettings({ demo_mode: next }).catch(() => undefined);
   }, []);
 
   const runUpdateCheck = useCallback(() => {
@@ -131,6 +130,9 @@ export function App() {
       })
       .catch(() => setConnection('disconnected'));
     runUpdateCheck();
+    getSettings()
+      .then((s) => setDemoMode(s.demo_mode))
+      .catch(() => undefined);
     // Re-hydrate an engine-owned session after a reload.
     getSessionStatus()
       .then((status) => {
@@ -373,10 +375,12 @@ export function App() {
               <Activity size={14} aria-hidden="true" />
               Session
             </h2>
-            <label className="demo-toggle" title="Run sessions display-only — no spoofer, no Discord IPC">
-              <input type="checkbox" checked={demoMode} onChange={toggleDemoMode} />
-              <span>Demo</span>
-            </label>
+            <Switch
+              checked={demoMode}
+              onChange={toggleDemoMode}
+              label="Demo"
+              title="Run sessions display-only — no spoofer, no Discord IPC"
+            />
           </div>
           <SessionPanel
             running={isRunning}

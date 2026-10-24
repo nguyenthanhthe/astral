@@ -221,9 +221,12 @@ fn quest_matches(q: &DiscordQuest, query: &str) -> bool {
 /// The primary executable (preferring non-launcher) is used for display;
 /// the full win32 executable list is what the spoofer later simulates (§T10).
 fn quest_from_discord_game(game: &DetectableGame) -> Quest {
-    let exe_name = game
-        .primary_exe()
-        .unwrap_or_else(|| format!("{}.exe", game.name.replace([':', ' '], "")));
+    // The game name arrives from the network catalog; sanitizing keeps the
+    // generated `.exe` a plain basename (no separators, no traversal, no
+    // Windows-forbidden characters) before it ever becomes a file path.
+    let exe_name = game.primary_exe().unwrap_or_else(|| {
+        crate::services::spoofer::orchestrator::sanitize_exe_name(&format!("{}.exe", game.name))
+    });
     Quest::new(
         format!("disc_{}", game.client_id),
         format!("Discord Verified: {}", game.name),
@@ -248,25 +251,9 @@ fn search_discord_games(query: String, state: tauri::State<'_, AppState>) -> Vec
 
     merge_catalog_hits(&mut list, state.read_catalog().as_ref(), &q_lower);
 
-    if list.is_empty() {
-        let custom = Quest::new(
-            format!("custom_{}", q_lower.replace(' ', "_")),
-            format!("Custom Quest: {}", query),
-            query.clone(),
-            LaunchTarget::Exe {
-                exe_name: format!("{}.exe", query.replace(' ', "")),
-            },
-            DEFAULT_CLIENT_ID,
-            Reward::Orbs(DEFAULT_REWARD_ORBS),
-            0,
-        );
-        let mut wire = DiscordQuest::from(&custom);
-        // Search miss: the `.exe` is a guess Discord's detector has never
-        // seen, so completion is not guaranteed (Direction A).
-        wire.catalog_verified = false;
-        list.push(wire);
-    }
-
+    // No auto-created placeholder quest on a search miss: the old fallback
+    // derived an executable path from raw search text. Explicit quest
+    // creation belongs to Quest Mirror, which validates every field first.
     list
 }
 
@@ -425,17 +412,28 @@ fn get_settings(state: tauri::State<'_, AppState>) -> crate::app::state::Setting
     state.read_settings().clone()
 }
 
-/// Apply an additive settings patch and return the merged settings.
+/// Apply an additive settings patch and return the merged settings. The
+/// merged value persists to `settings.json`; a write failure is logged but
+/// still returns the applied value (durability, not correctness, is lost).
 #[tauri::command]
 fn set_settings(
     patch: crate::app::state::SettingsPatch,
     state: tauri::State<'_, AppState>,
 ) -> Result<crate::app::state::Settings, AppError> {
-    let mut guard = state.write_settings();
-    if let Some(v) = patch.memory_trim_on_start {
-        guard.memory_trim_on_start = v;
+    let merged = {
+        let mut guard = state.write_settings();
+        if let Some(v) = patch.memory_trim_on_start {
+            guard.memory_trim_on_start = v;
+        }
+        if let Some(v) = patch.demo_mode {
+            guard.demo_mode = v;
+        }
+        guard.clone()
+    };
+    if let Err(err) = crate::infra::settings::save(&state.app_handle, &merged) {
+        log::warn!("{}", err.log_detail());
     }
-    Ok(guard.clone())
+    Ok(merged)
 }
 
 /// Rebuild a domain `Quest` from the wire `DiscordQuest` — the only place the
@@ -615,7 +613,18 @@ mod tests {
         let game = serde_json::json!({"name": "No Executables", "id": "9"});
         let parsed = DetectableGame::from_json(&game).unwrap();
         let q = quest_from_discord_game(&parsed);
-        assert_eq!(q.target.label(), "NoExecutables.exe");
+        assert_eq!(q.target.label(), "No Executables.exe");
+    }
+
+    #[test]
+    fn quest_from_discord_game_fallback_cannot_traverse_paths() {
+        let game = serde_json::json!({"name": "../../evil", "id": "10"});
+        let parsed = DetectableGame::from_json(&game).unwrap();
+        let q = quest_from_discord_game(&parsed);
+        let label = q.target.label();
+        assert!(!label.contains('/'), "no path separators in generated exe");
+        assert!(!label.contains('\\'), "no path separators in generated exe");
+        assert_eq!(label, "evil.exe");
     }
 
     #[test]

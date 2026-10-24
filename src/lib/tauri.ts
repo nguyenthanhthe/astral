@@ -78,10 +78,13 @@ export function checkForUpdate(): Promise<UpdateInfo> {
 
 export interface Settings {
   memory_trim_on_start: boolean;
+  /** Run sessions display-only by default (persisted on disk by the backend). */
+  demo_mode: boolean;
 }
 
 export interface SettingsPatch {
   memory_trim_on_start?: boolean;
+  demo_mode?: boolean;
 }
 
 /** Read the current settings. */

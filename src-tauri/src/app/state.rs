@@ -24,6 +24,9 @@ pub struct Settings {
     /// Trim the working set once after the window renders (Windows only).
     #[serde(default)]
     pub memory_trim_on_start: bool,
+    /// Run new sessions display-only by default (no spoofer, no Discord IPC).
+    #[serde(default)]
+    pub demo_mode: bool,
 }
 
 /// Additive settings update: only the present fields are applied.
@@ -31,6 +34,8 @@ pub struct Settings {
 pub struct SettingsPatch {
     #[serde(default)]
     pub memory_trim_on_start: Option<bool>,
+    #[serde(default)]
+    pub demo_mode: Option<bool>,
 }
 
 /// Registry of spoofer PIDs this app launched (Windows only).
@@ -105,7 +110,7 @@ impl AppState {
             session_task: RwLock::new(None),
             activity: RwLock::new(None),
             spoofer: RwLock::new(SpooferRegistry::new()),
-            settings: RwLock::new(Settings::default()),
+            settings: RwLock::new(crate::infra::settings::load(&app_handle)),
             app_handle,
             connect_notify: Arc::new(Notify::new()),
         }
@@ -179,12 +184,14 @@ mod tests {
     #[test]
     fn settings_default_disables_trim() {
         assert!(!Settings::default().memory_trim_on_start);
+        assert!(!Settings::default().demo_mode);
     }
 
     #[test]
     fn settings_round_trip_json() {
         let s = Settings {
             memory_trim_on_start: true,
+            demo_mode: true,
         };
         let json = serde_json::to_string(&s).unwrap();
         let back: Settings = serde_json::from_str(&json).unwrap();
@@ -195,24 +202,30 @@ mod tests {
     fn settings_patch_only_overrides_present_fields() {
         let base = Settings {
             memory_trim_on_start: false,
+            demo_mode: false,
         };
         let patch = SettingsPatch {
             memory_trim_on_start: Some(true),
+            demo_mode: Some(true),
         };
         let merged = Settings {
             memory_trim_on_start: patch
                 .memory_trim_on_start
                 .unwrap_or(base.memory_trim_on_start),
+            demo_mode: patch.demo_mode.unwrap_or(base.demo_mode),
         };
         assert!(merged.memory_trim_on_start);
+        assert!(merged.demo_mode);
 
         let empty = SettingsPatch::default();
         let merged = Settings {
             memory_trim_on_start: empty
                 .memory_trim_on_start
                 .unwrap_or(base.memory_trim_on_start),
+            demo_mode: empty.demo_mode.unwrap_or(base.demo_mode),
         };
         assert!(!merged.memory_trim_on_start);
+        assert!(!merged.demo_mode);
     }
 
     #[test]

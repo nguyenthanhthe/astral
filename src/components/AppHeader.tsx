@@ -1,4 +1,4 @@
-import { Github, RefreshCw, Star } from 'lucide-react';
+import { Github, RefreshCw } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 import { StatusPill, type ConnectionState } from './StatusPill';
 
@@ -20,6 +20,21 @@ interface AppHeaderProps {
 
 function openExternal(url: string) {
   open(url).catch(() => undefined);
+}
+
+/** Four-point star — the Astral brand mark, per the design contract. */
+function StarMark({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M12 1.5c.7 4.9 3.9 8.6 10 10.5-6.1 1.9-9.3 5.6-10 10.5-.7-4.9-3.9-8.6-10-10.5 6.1-1.9 9.3-5.6 10-10.5z" />
+    </svg>
+  );
 }
 
 export function AppHeader({
@@ -44,10 +59,10 @@ export function AppHeader({
     <header className="app-header">
       <div className="brand-group">
         <span className="brand-mark" aria-hidden="true">
-          <Star size={18} strokeWidth={1.5} fill="currentColor" />
+          <StarMark />
         </span>
         <div className="brand-title">
-          <span className="brand-name">ASTRAL</span>
+          <span className="brand-name">Astral</span>
           {version && <span className="brand-version">v{version}</span>}
         </div>
       </div>
