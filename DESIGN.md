@@ -15,10 +15,10 @@ gray-on-gray): `#0a0c12` → `#10131c` → `#171c28`. Depth is carried by
 **starlit edges** — each panel has a hairline border plus a 1px inner top
 highlight, as if lit from above — not by drop shadows.
 
-The signature moment is the **Orbit**: the session progress ring renders as
-an orbital arc with a cyan→violet gradient stroke and a comet-head dot at its
-tip, glowing softly while the session runs. A quiet constellation SVG anchors
-the empty session state. Reward moments use the reserved gold, never cyan.
+The progress ring is a plain solid-cyan arc: instrument-panel clean. No
+gradients, no glow, no decorative motifs (constellations, sparkles, comet
+tails) — the atmosphere comes from the palette and the hairline detailing,
+never from ornament. Reward moments use the reserved gold, never cyan.
 
 Typography stays on the system stack (no network fonts). Numerals —
 countdowns, percentages, process names — are mono and never shift width while
@@ -26,10 +26,10 @@ ticking. Section labels are 11px uppercase micro-caps with 0.10em tracking.
 
 **Key characteristics:**
 - Deep-space ink surfaces `#0a0c12` / `#10131c` / `#171c28` with starlit top edges
-- Single interactive accent: starlight cyan `#4cc2ff`; violet `#8b7cf6` only inside gradients
+- Single interactive accent: starlight cyan `#4cc2ff`; no secondary hues, no gradients
 - Reward gold `#f0c649` reserved for orbs/rewards — never for actions
-- Orbit ring with gradient stroke + comet head; constellation empty state
-- Compact density; mono numerals; text always carries status, never color alone
+- Solid-cyan progress ring; mono numerals; no decorative icons or motifs
+- Compact density; text always carries status, never color alone
 
 ## 2. Color Palette & Roles
 
@@ -38,7 +38,6 @@ ticking. Section labels are 11px uppercase micro-caps with 0.10em tracking.
 - **Starlight Hover** `#6fd0ff` — hover for accent surfaces
 - **Starlight Press** `#2ba8ea` — active/pressed
 - **Starlight Soft** `rgba(76, 194, 255, 0.10)` — selected-row wash, tags
-- **Nebula Violet** `#8b7cf6` — gradient partner only (orbit stroke, reward glow); never a flat UI fill
 
 ### Surfaces (dark, default)
 - **Background Base** `#0a0c12` — window background
@@ -133,7 +132,7 @@ ticking. Section labels are 11px uppercase micro-caps with 0.10em tracking.
 ## 6. Motion
 
 - Hover: 120ms `ease-out`
-- Orbit stroke: 300ms `ease-out`; comet head carries a soft 6px glow (opacity 0.5) while running
+- Ring stroke: 300ms `ease-out` (never animated on `prefers-reduced-motion`)
 - Status transitions: 200ms fade
 - Reward overlay: 220ms pop with gold orb-rise; disabled on `prefers-reduced-motion`
 - No looping, pulsing, or marquee animations outside the reward overlay
@@ -141,7 +140,7 @@ ticking. Section labels are 11px uppercase micro-caps with 0.10em tracking.
 ## 7. Usage Guardrails
 
 - Cyan is for *action and progress* only; never decorate headings, badges, or
-  idle UI with it. Violet never appears as a flat fill.
+  idle UI with it. No gradients in UI surfaces or strokes.
 - Gold appears only where orbs/rewards are; if the element is not about a
   reward, it is not gold.
 - Color never carries information alone — every status has text or an icon.

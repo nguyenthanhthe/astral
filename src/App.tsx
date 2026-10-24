@@ -51,7 +51,7 @@ export function App() {
   const [progress, setProgress] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(15 * 60);
   const [isRunning, setIsRunning] = useState(false);
-  const [sessionMessage, setSessionMessage] = useState('Select a quest to start a session.');
+  const [sessionMessage, setSessionMessage] = useState('Pick a quest to start.');
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [discordUser, setDiscordUser] = useState<DiscordStatus>(DISCONNECTED_STATUS);
   const [connection, setConnection] = useState<ConnectionState>('checking');
@@ -328,7 +328,7 @@ export function App() {
                 onClick={builderOpen ? () => setBuilderOpen(false) : openBuilder}
               >
                 <Wand2 size={12} aria-hidden="true" />
-                Mirror quest
+                Add quest
               </Button>
               <Button
                 variant="secondary"

@@ -3,6 +3,11 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Changed
+- **Toned-down UI, plainer wording**: the progress ring and quest progress bars are solid cyan again (no gradient strokes or glow), the decorative idle constellation is gone, and copy is more direct — "Add quest" instead of "Mirror quest", "Game" instead of "Mission", "Not running" instead of "Standby", and a clearer unverified-game warning.
+
 ## [2.13.0] - 2026-10-25
 
 ### Added

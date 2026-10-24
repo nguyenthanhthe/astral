@@ -551,7 +551,7 @@ input {
 
 .quest-row__bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--brand), var(--nebula));
+  background: var(--brand);
   border-radius: var(--radius-full);
   transition: width var(--duration-slow) var(--ease-out);
 }
@@ -621,7 +621,7 @@ input {
   justify-content: center;
 }
 
-/* ---------- Orbit ring ---------- */
+/* ---------- Progress ring ---------- */
 
 .ring {
   position: relative;
@@ -636,20 +636,11 @@ input {
 }
 
 .ring__bar {
-  stroke: url(#orbit-gradient);
+  stroke: var(--brand);
   stroke-linecap: round;
   transform: rotate(-90deg);
   transform-origin: center;
   transition: stroke-dashoffset var(--duration-slow) var(--ease-out);
-}
-
-.ring__head {
-  transition: cx var(--duration-slow) var(--ease-out),
-    cy var(--duration-slow) var(--ease-out);
-}
-
-.ring__head-glow {
-  opacity: 0.45;
 }
 
 @media (max-width: 879px) {
@@ -682,13 +673,6 @@ input {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-muted);
-}
-
-/* ---------- Constellation empty state ---------- */
-
-.constellation {
-  color: var(--border-default);
-  margin-bottom: var(--space-2);
 }
 
 /* ---------- States ---------- */

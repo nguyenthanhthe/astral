@@ -80,16 +80,16 @@ export function QuestBuilder({ customQuests, onChanged, onClose }: QuestBuilderP
   };
 
   return (
-    <div className="quest-builder" role="form" aria-label="Mirror a quest">
+    <div className="quest-builder" role="form" aria-label="Add a quest">
       <div className="quest-builder__header">
-        <h3 className="quest-builder__title">Mirror a quest</h3>
+        <h3 className="quest-builder__title">Add a quest</h3>
         <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close quest builder">
           <X size={14} aria-hidden="true" />
         </Button>
       </div>
       <p className="quest-builder__hint">
-        Copy the quest you see in your Discord client. Stored on this device only — your
-        account token is never read.
+        Recreate a quest you see in your Discord client. Saved on this device only — your
+        account is never accessed.
       </p>
 
       <label className="qb-field">

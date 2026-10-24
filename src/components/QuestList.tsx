@@ -52,7 +52,7 @@ function QuestRow({
           </span>
           {!quest.catalog_verified && (
             <span className="quest-row__warn" role="note">
-              Not in Discord's detectable list — may not count.
+              This game isn't on Discord's list — progress may not count.
             </span>
           )}
         </span>
