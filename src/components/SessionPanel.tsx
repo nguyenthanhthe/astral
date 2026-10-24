@@ -9,6 +9,8 @@ interface SessionPanelProps {
   progress: number;
   secondsLeft: number;
   message: string;
+  /** True when the running session is display-only (demo mode). */
+  demo?: boolean;
   onStop: () => void;
 }
 
@@ -18,6 +20,7 @@ export function SessionPanel({
   progress,
   secondsLeft,
   message,
+  demo = false,
   onStop,
 }: SessionPanelProps) {
   const caption = running ? `${formatTime(secondsLeft)} left` : 'Standby';
@@ -27,6 +30,7 @@ export function SessionPanel({
       <ProgressRing value={progress} caption={caption} running={running} />
       <p className="session-message" data-state={running ? 'running' : 'idle'} role="status">
         {message}
+        {demo && running && <span className="session-demo-badge">DEMO</span>}
       </p>
 
       <dl className="session-details">

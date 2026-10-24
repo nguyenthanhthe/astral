@@ -37,6 +37,8 @@ pub struct SessionStarted {
     pub exe_name: String,
     pub target_sec: u64,
     pub initial_percent: u8,
+    /// True when the session runs purely locally (no spoofer, no Discord IPC).
+    pub demo: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -74,8 +76,18 @@ enum Outcome {
     Stopped(StopReason, Option<String>),
 }
 
-/// Start a quest session. Errors if a session is already running.
-pub async fn start(app: &AppHandle, quest: Quest) -> Result<Session, AppError> {
+/// Start a quest session with an explicit length and mode.
+///
+/// `duration_override` carries the real quest length for mirrored quests
+/// (curated quests fall back to the kind heuristic). `demo = true` runs the
+/// session purely locally: progress events flow exactly the same, but no
+/// spoofer process is spawned and Discord IPC is never touched.
+pub async fn start_with(
+    app: &AppHandle,
+    quest: Quest,
+    duration_override: Option<Duration>,
+    demo: bool,
+) -> Result<Session, AppError> {
     let state = app.state::<AppState>();
     if state.read_session().is_some() {
         return Err(AppError::SessionActive);
@@ -86,8 +98,9 @@ pub async fn start(app: &AppHandle, quest: Quest) -> Result<Session, AppError> {
         quest: quest.clone(),
         kind: session_kind(&quest.target),
         started_at: Instant::now(),
-        target_sec: quest_duration(&quest),
+        target_sec: duration_override.unwrap_or_else(|| quest_duration(&quest)),
         initial_percent: quest.saved_percent,
+        demo,
     };
 
     let (stop_tx, stop_rx) = watch::channel(None);
@@ -108,9 +121,10 @@ pub async fn start(app: &AppHandle, quest: Quest) -> Result<Session, AppError> {
             exe_name: session.quest.target.wire_exe_name(),
             target_sec: session.target_sec.as_secs(),
             initial_percent: session.initial_percent,
+            demo: session.demo,
         },
     );
-    log::info!("session started: {}", session.id);
+    log::info!("session started: {} (demo={})", session.id, session.demo);
     Ok(session)
 }
 
@@ -119,13 +133,14 @@ pub async fn stop(app: &AppHandle) -> Result<(), AppError> {
     let state = app.state::<AppState>();
     let task = state.write_session_task().take();
     let session = state.write_session().take();
+    let demo = session.as_ref().map(|s| s.demo).unwrap_or(false);
 
     if let Some(task) = task {
         let _ = task.stop.send(Some(StopReason::User));
         task.handle.abort();
     }
 
-    cleanup(app).await;
+    cleanup(app, demo).await;
 
     if let Some(session) = session {
         let _ = app.emit(
@@ -153,24 +168,31 @@ pub fn status(app: &AppHandle) -> Option<SessionStarted> {
         exe_name: s.quest.target.wire_exe_name(),
         target_sec: s.target_sec.as_secs(),
         initial_percent: s.initial_percent,
+        demo: s.demo,
     })
 }
 
 async fn run(app: AppHandle, session: Session, mut stop_rx: watch::Receiver<Option<StopReason>>) {
-    let activity = match launch(&app, &session).await {
-        Ok(guard) => guard,
-        Err(e) => {
-            log::warn!("session {} launch failed: {}", session.id, e.log_detail());
-            finish(
-                &app,
-                &session,
-                Outcome::Stopped(StopReason::Error, Some(e.message())),
-            )
-            .await;
-            return;
+    // Demo sessions never spawn a spoofer or touch the Discord socket — the
+    // progress ring is the entire effect.
+    let activity = if session.demo {
+        None
+    } else {
+        match launch(&app, &session).await {
+            Ok(guard) => Some(guard),
+            Err(e) => {
+                log::warn!("session {} launch failed: {}", session.id, e.log_detail());
+                finish(
+                    &app,
+                    &session,
+                    Outcome::Stopped(StopReason::Error, Some(e.message())),
+                )
+                .await;
+                return;
+            }
         }
     };
-    {
+    if let Some(activity) = activity {
         let state = app.state::<AppState>();
         *state.write_activity() = Some(activity);
     }
@@ -224,9 +246,11 @@ async fn launch(app: &AppHandle, session: &Session) -> Result<ActivityGuard, App
             {
                 let app = app.clone();
                 let game_name = quest.game_name.clone();
-                let exe_names = orchestrator::exe_names_for_simulation(
+                let quest_exe = quest.target.exe_name().map(|s| s.to_string());
+                let exe_names = orchestrator::exe_names_for_quest(
                     app.state::<AppState>().read_catalog().as_ref(),
-                    &quest.game_name,
+                    quest_exe.as_deref(),
+                    &game_name,
                 );
                 tauri::async_runtime::spawn_blocking(move || {
                     orchestrator::spawn_exe_simulation(&app, &exe_names, &game_name)
@@ -261,6 +285,15 @@ async fn launch(app: &AppHandle, session: &Session) -> Result<ActivityGuard, App
             )
             .await
         }
+        SessionKind::Video => {
+            hold_ipc_activity(
+                &quest.client_id,
+                "Watching Quest Video",
+                "Completing Video Quest",
+                duration_secs,
+            )
+            .await
+        }
     }
 }
 
@@ -285,9 +318,10 @@ async fn hold_ipc_activity(
 }
 
 /// Kill spoofer PIDs + clear IPC activity, then clear the running session
-/// from `AppState` and emit the terminal event.
+/// from `AppState` and emit the terminal event. `demo` sessions never touched
+/// Discord, so the activity clear is skipped for them.
 async fn finish(app: &AppHandle, session: &Session, outcome: Outcome) {
-    cleanup(app).await;
+    cleanup(app, session.demo).await;
 
     let state = app.state::<AppState>();
     *state.write_session() = None;
@@ -320,14 +354,17 @@ async fn finish(app: &AppHandle, session: &Session, outcome: Outcome) {
 
 /// Stop spoofer processes (Windows), stop the held activity (clearing the
 /// presence + closing the socket), so no ghost presence outlives the session.
-async fn cleanup(app: &AppHandle) {
+/// Demo sessions have nothing registered — the Discord calls are skipped.
+async fn cleanup(app: &AppHandle, demo: bool) {
     let app = app.clone();
     let _ = tauri::async_runtime::spawn_blocking(move || {
         orchestrator::stop_all(&app);
-        if let Some(mut guard) = app.state::<AppState>().write_activity().take() {
-            guard.stop();
+        if !demo {
+            if let Some(mut guard) = app.state::<AppState>().write_activity().take() {
+                guard.stop();
+            }
+            let _ = crate::services::discord::activity::clear_activity();
         }
-        let _ = crate::services::discord::activity::clear_activity();
     })
     .await;
 }
@@ -337,15 +374,18 @@ fn session_kind(target: &LaunchTarget) -> SessionKind {
         LaunchTarget::Exe { .. } => SessionKind::Exe,
         LaunchTarget::Console => SessionKind::Console,
         LaunchTarget::Stream => SessionKind::Stream,
+        LaunchTarget::Video => SessionKind::Video,
     }
 }
 
-/// Target duration: 30s for video quests, 15 minutes otherwise. Matches the
-/// legacy frontend heuristic, which checked the wire `exe_name` marker for
-/// "video"; the title is checked too for quests that only carry it there.
+/// Target duration when a quest carries no explicit length: 30s for video
+/// quests, 15 minutes otherwise. Matches the legacy frontend heuristic, which
+/// checked the wire `exe_name` marker for "video"; the title is checked too
+/// for quests that only carry it there. Mirrored quests always bring their
+/// own duration (`start_with`).
 fn quest_duration(quest: &Quest) -> Duration {
     let hay = format!("{} {}", quest.title, quest.target.wire_exe_name()).to_lowercase();
-    if hay.contains("video") {
+    if hay.contains("video") || quest.target == LaunchTarget::Video {
         Duration::from_secs(VIDEO_QUEST_DURATION_SEC)
     } else {
         Duration::from_secs(GAME_QUEST_DURATION_SEC)
@@ -396,5 +436,20 @@ mod tests {
         );
         assert_eq!(session_kind(&LaunchTarget::Console), SessionKind::Console);
         assert_eq!(session_kind(&LaunchTarget::Stream), SessionKind::Stream);
+        assert_eq!(session_kind(&LaunchTarget::Video), SessionKind::Video);
+    }
+
+    #[test]
+    fn video_target_duration_is_30s_even_without_a_video_title() {
+        let quest = Quest::new(
+            "video_2",
+            "Trailer bonus",
+            "YouTube",
+            LaunchTarget::Video,
+            "1",
+            crate::domain::reward::Reward::Orbs(10),
+            0,
+        );
+        assert_eq!(quest_duration(&quest), Duration::from_secs(30));
     }
 }

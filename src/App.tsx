@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { listen } from '@tauri-apps/api/event';
-import { Activity, AlertCircle, Flag, Play } from 'lucide-react';
+import { Activity, AlertCircle, Flag, Play, Wand2 } from 'lucide-react';
 import {
   checkDiscordSession,
   checkForUpdate,
   fetchActiveQuests,
   getSessionStatus,
+  listCustomQuests,
   optimizeRam,
   searchDiscordGames,
   startSession as invokeStartSession,
@@ -20,9 +21,12 @@ import type {
   SessionStarted,
   SessionStopped,
 } from './lib/quest';
+import { orbCountFromReward } from './lib/quest';
 import { AppHeader, type ConnectionState, type UpdateState } from './components/AppHeader';
 import { Button } from './components/Button';
+import { QuestBuilder } from './components/QuestBuilder';
 import { QuestList } from './components/QuestList';
+import { RewardOverlay } from './components/RewardOverlay';
 import { SearchInput } from './components/SearchInput';
 import { SessionPanel } from './components/SessionPanel';
 
@@ -33,6 +37,8 @@ const DISCONNECTED_STATUS: DiscordStatus = {
   username: 'Disconnected',
   user_id: '',
 };
+
+const DEMO_MODE_KEY = 'astral_demo_mode';
 
 export function App() {
   const [query, setQuery] = useState('');
@@ -52,6 +58,33 @@ export function App() {
   const [updateState, setUpdateState] = useState<UpdateState>('idle');
   const [updateLatest, setUpdateLatest] = useState<string | undefined>(undefined);
   const [updateUrl, setUpdateUrl] = useState<string | undefined>(undefined);
+
+  // Demo mode: sessions run purely locally — the progress ring and reward
+  // overlay are display-only, with no spoofer process and no Discord traffic.
+  const [demoMode, setDemoMode] = useState(() => localStorage.getItem(DEMO_MODE_KEY) === '1');
+  const [runningDemo, setRunningDemo] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [customQuests, setCustomQuests] = useState<DiscordQuest[]>([]);
+  const [rewardOverlay, setRewardOverlay] = useState<{
+    orbs: number | null;
+    label: string;
+  } | null>(null);
+
+  // Refs mirror the state the once-registered engine listeners read, so the
+  // finish handler never sees a stale closure after a re-render.
+  const runningDemoRef = useRef(false);
+  const selectedQuestRef = useRef<DiscordQuest | null>(null);
+  useEffect(() => {
+    selectedQuestRef.current = selectedQuest;
+  }, [selectedQuest]);
+
+  const toggleDemoMode = useCallback(() => {
+    setDemoMode((prev) => {
+      const next = !prev;
+      localStorage.setItem(DEMO_MODE_KEY, next ? '1' : '0');
+      return next;
+    });
+  }, []);
 
   const runUpdateCheck = useCallback(() => {
     setUpdateState('checking');
@@ -79,6 +112,12 @@ export function App() {
       .finally(() => setQuestsLoading(false));
   }, []);
 
+  const loadCustomQuests = useCallback(() => {
+    listCustomQuests()
+      .then(setCustomQuests)
+      .catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     loadQuests();
     optimizeRam().catch(() => undefined);
@@ -97,6 +136,8 @@ export function App() {
       .then((status) => {
         if (!status) return;
         setIsRunning(true);
+        setRunningDemo(status.demo ?? false);
+        runningDemoRef.current = status.demo ?? false;
         setSessionMessage(`Running ${status.game_name}`);
       })
       .catch(() => undefined);
@@ -129,6 +170,9 @@ export function App() {
     const subs: Promise<() => void>[] = [
       listen<SessionStarted>('session://started', (event) => {
         const s = event.payload;
+        const demo = s.demo ?? false;
+        runningDemoRef.current = demo;
+        setRunningDemo(demo);
         setIsRunning(true);
         setProgress(s.initial_percent);
         setSecondsLeft(s.target_sec);
@@ -140,10 +184,19 @@ export function App() {
       }),
       listen<SessionFinished>('session://finished', () => {
         setIsRunning(false);
+        if (runningDemoRef.current) {
+          const quest = selectedQuestRef.current;
+          setRewardOverlay({
+            orbs: orbCountFromReward(quest?.reward ?? ''),
+            label: quest?.reward ?? '',
+          });
+          setSessionMessage('Demo session complete — simulated locally.');
+        } else {
+          setSessionMessage('Session complete (simulated) — confirm the reward in Discord.');
+        }
         setSelectedQuest(null);
         setProgress(100);
         setSecondsLeft(0);
-        setSessionMessage('Session complete (simulated) — confirm the reward in Discord.');
       }),
       listen<SessionStopped>('session://stopped', (event) => {
         const failed = event.payload.reason === 'ERROR';
@@ -199,26 +252,41 @@ export function App() {
     }
   }, []);
 
-  const startSession = useCallback(async (quest: DiscordQuest) => {
-    setSelectedQuest(quest);
-    setSessionError(null);
-    setIsRunning(true);
-    setProgress(quest.progress_percent || 0);
-    setSessionMessage(`Running ${quest.game_name}`);
+  const startSession = useCallback(
+    async (quest: DiscordQuest) => {
+      setSelectedQuest(quest);
+      setSessionError(null);
+      setIsRunning(true);
+      setProgress(quest.progress_percent || 0);
+      setSessionMessage(`Running ${quest.game_name}${demoMode ? ' (demo)' : ''}`);
 
-    try {
-      await invokeStartSession(quest);
-    } catch (e) {
-      setIsRunning(false);
-      setSelectedQuest(null);
-      setSessionMessage(`Couldn't start ${quest.game_name}.`);
-      setSessionError(String(e));
-    }
-  }, []);
+      try {
+        await invokeStartSession(quest, demoMode);
+      } catch (e) {
+        setIsRunning(false);
+        setSelectedQuest(null);
+        setSessionMessage(`Couldn't start ${quest.game_name}.`);
+        // AppError serializes as { code, message }; prefer the user-safe text.
+        setSessionError(
+          typeof e === 'object' && e !== null && 'message' in e
+            ? String((e as { message: unknown }).message)
+            : String(e),
+        );
+      }
+    },
+    [demoMode],
+  );
 
   const runFirstQuest = useCallback(() => {
     if (quests.length > 0) startSession(quests[0]);
   }, [quests, startSession]);
+
+  const closeRewardOverlay = useCallback(() => setRewardOverlay(null), []);
+
+  const openBuilder = useCallback(() => {
+    setBuilderOpen(true);
+    loadCustomQuests();
+  }, [loadCustomQuests]);
 
   return (
     <div className="app-shell">
@@ -251,18 +319,39 @@ export function App() {
               <Flag size={14} aria-hidden="true" />
               Quests
             </h2>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={runFirstQuest}
-              disabled={quests.length === 0 || isRunning}
-            >
-              <Play size={12} aria-hidden="true" />
-              Start first quest
-            </Button>
+            <div className="panel-header__actions">
+              <Button
+                variant={builderOpen ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={builderOpen ? () => setBuilderOpen(false) : openBuilder}
+              >
+                <Wand2 size={12} aria-hidden="true" />
+                Mirror quest
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={runFirstQuest}
+                disabled={quests.length === 0 || isRunning}
+              >
+                <Play size={12} aria-hidden="true" />
+                Start first quest
+              </Button>
+            </div>
           </div>
 
           <SearchInput value={query} onChange={setQuery} />
+
+          {builderOpen && (
+            <QuestBuilder
+              customQuests={customQuests}
+              onChanged={() => {
+                loadCustomQuests();
+                loadQuests();
+              }}
+              onClose={() => setBuilderOpen(false)}
+            />
+          )}
 
           <div className="panel-scroll">
             <QuestList
@@ -279,20 +368,34 @@ export function App() {
         </section>
 
         <aside className="panel" aria-labelledby="session-heading">
-          <h2 id="session-heading" className="panel-title">
-            <Activity size={14} aria-hidden="true" />
-            Session
-          </h2>
+          <div className="panel-header">
+            <h2 id="session-heading" className="panel-title">
+              <Activity size={14} aria-hidden="true" />
+              Session
+            </h2>
+            <label className="demo-toggle" title="Run sessions display-only — no spoofer, no Discord IPC">
+              <input type="checkbox" checked={demoMode} onChange={toggleDemoMode} />
+              <span>Demo</span>
+            </label>
+          </div>
           <SessionPanel
             running={isRunning}
             quest={selectedQuest}
             progress={progress}
             secondsLeft={secondsLeft}
             message={sessionMessage}
+            demo={runningDemo}
             onStop={stopSession}
           />
         </aside>
       </div>
+
+      <RewardOverlay
+        open={rewardOverlay !== null}
+        orbs={rewardOverlay?.orbs ?? null}
+        rewardLabel={rewardOverlay?.label ?? ''}
+        onClose={closeRewardOverlay}
+      />
     </div>
   );
 }

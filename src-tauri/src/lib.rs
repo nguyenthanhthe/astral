@@ -50,6 +50,10 @@ pub struct DiscordQuest {
     /// catalog (or is a curated, known-good quest). Custom quests created
     /// from a search miss are unverified and may not be detected by Discord.
     pub catalog_verified: bool,
+    /// Real quest length in seconds, carried by mirrored quests. `None` lets
+    /// the engine pick the kind-based default. Absent in older wire payloads.
+    #[serde(default)]
+    pub duration_secs: Option<u64>,
 }
 
 impl From<&Quest> for DiscordQuest {
@@ -63,6 +67,7 @@ impl From<&Quest> for DiscordQuest {
             reward: q.reward.to_display(),
             progress_percent: q.saved_percent as u32,
             catalog_verified: true,
+            duration_secs: None,
         }
     }
 }
@@ -98,14 +103,44 @@ fn fetch_active_quests(state: tauri::State<'_, AppState>) -> Vec<DiscordQuest> {
 
 fn fetch_active_quests_with(state: &AppState) -> Vec<DiscordQuest> {
     let catalog = state.read_catalog();
-    active_quests()
+    let mut list: Vec<DiscordQuest> = active_quests()
         .iter()
         .map(|q| {
             let mut wire = DiscordQuest::from(q);
             wire.client_id = resolve_quest_client_id(catalog.as_ref(), q);
             wire
         })
-        .collect()
+        .collect();
+    // Quest Mirror: quests the user mirrored from their own Discord client,
+    // persisted on disk (no account token involved).
+    for quest in crate::services::queststore::list(&state.app_handle) {
+        list.push(custom_quest_to_wire(&quest, catalog.as_ref()));
+    }
+    list
+}
+
+/// Project a mirrored quest to the wire. The catalog decides both the
+/// `client_id` (real game application when known) and `catalog_verified`
+/// (Discord's detector has actually seen this game's executable).
+fn custom_quest_to_wire(
+    quest: &crate::services::queststore::CustomQuest,
+    catalog: Option<&Catalog>,
+) -> DiscordQuest {
+    let domain = quest.to_domain();
+    let verified = catalog
+        .and_then(|c| c.find(&quest.game_name))
+        .is_some();
+    DiscordQuest {
+        id: domain.id.to_string(),
+        title: domain.title.clone(),
+        game_name: domain.game_name.clone(),
+        exe_name: domain.target.wire_exe_name(),
+        client_id: resolve_quest_client_id(catalog, &domain),
+        reward: domain.reward.to_display(),
+        progress_percent: 0,
+        catalog_verified: verified,
+        duration_secs: Some(quest.duration_secs),
+    }
 }
 
 /// Pick the catalog `client_id` for a quest's game when the catalog is
@@ -279,17 +314,93 @@ async fn check_for_update() -> Result<crate::services::update::UpdateInfo, AppEr
     crate::services::update::check_for_update().await
 }
 
+// ponytail: Quest Mirror command layer — the user mirrors quests they see in
+// their own Discord client; entries persist on disk and join the quest list.
+
+/// Input shape for a mirrored quest (validated before persistence).
+#[derive(Debug, Deserialize)]
+pub struct CustomQuestInput {
+    pub title: String,
+    pub game_name: String,
+    /// `"exe" | "console" | "stream" | "video"`.
+    pub kind: String,
+    #[serde(default)]
+    pub exe_name: Option<String>,
+    #[serde(default)]
+    pub client_id: Option<String>,
+    /// Display reward, e.g. `"700 Orbs"`.
+    pub reward: String,
+    pub duration_secs: u64,
+}
+
+#[tauri::command]
+fn list_custom_quests(state: tauri::State<'_, AppState>) -> Vec<DiscordQuest> {
+    let catalog = state.read_catalog();
+    crate::services::queststore::list(&state.app_handle)
+        .iter()
+        .map(|quest| custom_quest_to_wire(quest, catalog.as_ref()))
+        .collect()
+}
+
+#[tauri::command]
+fn save_custom_quest(
+    input: CustomQuestInput,
+    state: tauri::State<'_, AppState>,
+) -> Result<DiscordQuest, AppError> {
+    let quest = crate::services::queststore::CustomQuest {
+        id: crate::services::queststore::new_id(),
+        title: input.title.trim().to_string(),
+        game_name: input.game_name.trim().to_string(),
+        kind: input.kind.trim().to_lowercase(),
+        exe_name: input
+            .exe_name
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty()),
+        client_id: input
+            .client_id
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty()),
+        reward: input.reward.trim().to_string(),
+        duration_secs: input.duration_secs,
+        created_at: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
+    };
+    let saved = crate::services::queststore::add(&state.app_handle, quest)?;
+    let catalog = state.read_catalog();
+    Ok(custom_quest_to_wire(&saved, catalog.as_ref()))
+}
+
+#[tauri::command]
+fn delete_custom_quest(id: String, state: tauri::State<'_, AppState>) -> Result<(), AppError> {
+    crate::services::queststore::remove(&state.app_handle, &id)?;
+    Ok(())
+}
+
 // ponytail: session engine command layer (Phase 3). The frontend only
 // starts/stops sessions; every progress update arrives as a `session://` event.
 
 /// Start a session for the given quest (wire `DiscordQuest` -> domain `Quest`).
+///
+/// `demo = true` runs the session purely locally — the progress ring is a
+/// display-only simulation with no spoofer process and no Discord traffic.
+/// `duration_secs` on the quest (mirrored quests) overrides the kind-based
+/// default when it is a sane value.
 #[tauri::command]
 async fn start_session(
     quest: DiscordQuest,
+    demo: Option<bool>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), AppError> {
+    const MIN_OVERRIDE_SEC: u64 = 10;
+    const MAX_OVERRIDE_SEC: u64 = 24 * 60 * 60;
     let app = state.app_handle.clone();
-    session_engine::start(&app, quest_from_wire(&quest))
+    let duration_override = quest
+        .duration_secs
+        .filter(|secs| (MIN_OVERRIDE_SEC..=MAX_OVERRIDE_SEC).contains(secs))
+        .map(std::time::Duration::from_secs);
+    session_engine::start_with(&app, quest_from_wire(&quest), duration_override, demo.unwrap_or(false))
         .await
         .map(|_| ())
 }
@@ -333,6 +444,7 @@ fn quest_from_wire(q: &DiscordQuest) -> Quest {
     let target = match q.exe_name.as_str() {
         "[Console Quest]" => LaunchTarget::Console,
         "[Stream Quest]" => LaunchTarget::Stream,
+        "[Video Quest]" => LaunchTarget::Video,
         exe => LaunchTarget::Exe {
             exe_name: exe.to_string(),
         },
@@ -387,6 +499,9 @@ pub fn run() {
             search_discord_games,
             refresh_catalog,
             check_for_update,
+            list_custom_quests,
+            save_custom_quest,
+            delete_custom_quest,
             start_session,
             stop_session,
             get_session_status,
@@ -413,6 +528,7 @@ mod tests {
             reward: "700 Orbs".into(),
             progress_percent: 0,
             catalog_verified: true,
+            duration_secs: None,
         };
         assert!(quest_matches(&q, "endfield"));
         assert!(quest_matches(&q, "companionship"));
@@ -529,6 +645,7 @@ mod tests {
             reward: "700 Orbs".into(),
             progress_percent: 42,
             catalog_verified: true,
+            duration_secs: None,
         };
         let q = quest_from_wire(&console);
         assert_eq!(q.target, LaunchTarget::Console);
@@ -546,5 +663,43 @@ mod tests {
                 exe_name: "Endfield.exe".into()
             }
         );
+    }
+
+    #[test]
+    fn quest_from_wire_rebuilds_video_targets() {
+        let video = DiscordQuest {
+            id: "v1".into(),
+            title: "Watch the trailer".into(),
+            game_name: "YouTube".into(),
+            exe_name: "[Video Quest]".into(),
+            client_id: "1".into(),
+            reward: "50 Orbs".into(),
+            progress_percent: 0,
+            catalog_verified: true,
+            duration_secs: Some(30),
+        };
+        let q = quest_from_wire(&video);
+        assert_eq!(q.target, LaunchTarget::Video);
+    }
+
+    #[test]
+    fn custom_quest_wire_carries_duration_and_verification() {
+        use crate::services::queststore::CustomQuest;
+        let mirrored = CustomQuest {
+            id: "custom_1".into(),
+            title: "Watch the trailer".into(),
+            game_name: "No Such Game".into(),
+            kind: "video".into(),
+            exe_name: None,
+            client_id: None,
+            reward: "50 Orbs".into(),
+            duration_secs: 45,
+            created_at: 0,
+        };
+        let wire = custom_quest_to_wire(&mirrored, None);
+        assert_eq!(wire.duration_secs, Some(45));
+        assert_eq!(wire.exe_name, "[Video Quest]");
+        assert!(!wire.catalog_verified, "no catalog -> unverified");
+        assert_eq!(wire.client_id, DEFAULT_CLIENT_ID);
     }
 }

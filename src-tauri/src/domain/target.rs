@@ -9,6 +9,9 @@ pub enum LaunchTarget {
     Console,
     /// Voice-channel stream quest — Discord IPC activity, no process.
     Stream,
+    /// Quest video (watched in the Discord client) — Discord IPC activity,
+    /// no process.
+    Video,
 }
 
 impl LaunchTarget {
@@ -18,6 +21,7 @@ impl LaunchTarget {
             LaunchTarget::Exe { exe_name } => exe_name.clone(),
             LaunchTarget::Console => "Console (PS5 / Xbox)".to_string(),
             LaunchTarget::Stream => "Voice stream".to_string(),
+            LaunchTarget::Video => "Quest video".to_string(),
         }
     }
 
@@ -32,11 +36,20 @@ impl LaunchTarget {
             LaunchTarget::Exe { exe_name } => exe_name.clone(),
             LaunchTarget::Console => "[Console Quest]".to_string(),
             LaunchTarget::Stream => "[Stream Quest]".to_string(),
+            LaunchTarget::Video => "[Video Quest]".to_string(),
         }
     }
 
     pub fn is_exe(&self) -> bool {
         matches!(self, LaunchTarget::Exe { .. })
+    }
+
+    /// The executable name for `Exe` targets, `None` for the IPC-only kinds.
+    pub fn exe_name(&self) -> Option<&str> {
+        match self {
+            LaunchTarget::Exe { exe_name } => Some(exe_name),
+            _ => None,
+        }
     }
 }
 
@@ -54,17 +67,20 @@ mod tests {
     }
 
     #[test]
-    fn console_and_stream_labels() {
+    fn console_stream_and_video_labels() {
         assert_eq!(LaunchTarget::Console.label(), "Console (PS5 / Xbox)");
         assert_eq!(LaunchTarget::Stream.label(), "Voice stream");
+        assert_eq!(LaunchTarget::Video.label(), "Quest video");
         assert!(!LaunchTarget::Console.is_exe());
         assert!(!LaunchTarget::Stream.is_exe());
+        assert!(!LaunchTarget::Video.is_exe());
     }
 
     #[test]
     fn wire_markers_preserve_fe_contract() {
         assert_eq!(LaunchTarget::Console.wire_exe_name(), "[Console Quest]");
         assert_eq!(LaunchTarget::Stream.wire_exe_name(), "[Stream Quest]");
+        assert_eq!(LaunchTarget::Video.wire_exe_name(), "[Video Quest]");
         assert_eq!(
             LaunchTarget::Exe {
                 exe_name: "Eve.exe".into()

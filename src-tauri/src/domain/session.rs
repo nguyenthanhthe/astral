@@ -23,6 +23,8 @@ pub enum SessionKind {
     Console,
     /// Stream quest via Discord IPC activity.
     Stream,
+    /// Quest video via Discord IPC activity.
+    Video,
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +38,9 @@ pub struct Session {
     pub target_sec: Duration,
     /// Progress (0..=100) carried in from the quest when the session began.
     pub initial_percent: u8,
+    /// Demo sessions run purely locally: no spoofer process and no Discord
+    /// IPC — the progress ring is a display-only simulation.
+    pub demo: bool,
 }
 
 impl Session {
@@ -87,6 +92,7 @@ mod tests {
             started_at: Instant::now(),
             target_sec: Duration::from_secs(target_sec),
             initial_percent: start,
+            demo: false,
         }
     }
 

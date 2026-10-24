@@ -1,12 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DiscordQuest, DiscordStatus, SessionStarted } from './quest';
+import type {
+  CustomQuestInput,
+  DiscordQuest,
+  DiscordStatus,
+  SessionStarted,
+} from './quest';
 
 /** Check whether Discord IPC is reachable and return the logged-in user. */
 export function checkDiscordSession(): Promise<DiscordStatus> {
   return invoke<DiscordStatus>('check_discord_session');
 }
 
-/** Fetch the hardcoded active Discord quest list. */
+/** Fetch the curated quest presets plus the user's mirrored quests. */
 export function fetchActiveQuests(): Promise<DiscordQuest[]> {
   return invoke<DiscordQuest[]>('fetch_active_quests');
 }
@@ -16,14 +21,32 @@ export function searchDiscordGames(query: string): Promise<DiscordQuest[]> {
   return invoke<DiscordQuest[]>('search_discord_games', { query });
 }
 
+/** List the quests mirrored from the user's Discord client. */
+export function listCustomQuests(): Promise<DiscordQuest[]> {
+  return invoke<DiscordQuest[]>('list_custom_quests');
+}
+
+/** Validate, persist and return a new mirrored quest. */
+export function saveCustomQuest(input: CustomQuestInput): Promise<DiscordQuest> {
+  return invoke<DiscordQuest>('save_custom_quest', { input });
+}
+
+/** Delete a mirrored quest by id. */
+export function deleteCustomQuest(id: string): Promise<void> {
+  return invoke<void>('delete_custom_quest', { id });
+}
+
 /** Force a network refresh of the detectable-games catalog. */
 export function refreshCatalog(): Promise<void> {
   return invoke<void>('refresh_catalog');
 }
 
-/** Start a quest session on the backend (the engine drives progress). */
-export function startSession(quest: DiscordQuest): Promise<void> {
-  return invoke<void>('start_session', { quest });
+/**
+ * Start a quest session on the backend (the engine drives progress).
+ * `demo = true` runs it display-only: no spoofer process, no Discord IPC.
+ */
+export function startSession(quest: DiscordQuest, demo = false): Promise<void> {
+  return invoke<void>('start_session', { quest, demo });
 }
 
 /** Stop the running session. */

@@ -41,15 +41,52 @@ pub fn exe_names_for_simulation(catalog: Option<&Catalog>, game_name: &str) -> V
     names
 }
 
+/// Resolve the executable names to simulate for a quest.
+///
+/// The quest's own executable (what the user mirrored from their client) is
+/// simulated first, then the catalog record's win32 list (the exact names
+/// Discord's scanner matches). A game missing from the catalog falls back to
+/// `<game>.exe`, so any quest is runnable. Duplicates are removed while
+/// keeping order.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+pub fn exe_names_for_quest(
+    catalog: Option<&Catalog>,
+    quest_exe: Option<&str>,
+    game_name: &str,
+) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    if let Some(exe) = quest_exe {
+        let sanitized = sanitize_exe_name(exe);
+        if !names.contains(&sanitized) {
+            names.push(sanitized);
+        }
+    }
+    for name in exe_names_for_simulation(catalog, game_name) {
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
+    names
+}
+
 /// Normalize an executable name to a safe basename ending in `.exe`.
 ///
 /// The catalog stores full paths (e.g. `garenaloltw/gamedata/apps/loltw/lol.exe`);
 /// Discord matches by basename, and we must not allow path traversal into the
-/// staging dir. Handles both `/` and `\` separators.
+/// staging dir. Handles both `/` and `\` separators, plus characters Windows
+/// forbids in file names (`:` in "Game: Subtitle" would make staging fail).
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub fn sanitize_exe_name(name: &str) -> String {
     let base = name.rsplit(['/', '\\']).next().unwrap_or(name).to_string();
-    ensure_exe_suffix(&base)
+    let legal: String = base
+        .chars()
+        .map(|c| match c {
+            ':' | '*' | '?' | '"' | '<' | '>' | '|' => ' ',
+            other => other,
+        })
+        .collect();
+    let trimmed = legal.trim();
+    ensure_exe_suffix(if trimmed.is_empty() { "game" } else { trimmed })
 }
 
 /// Normalize an executable name to end in `.exe`.
@@ -206,6 +243,49 @@ mod tests {
     #[test]
     fn sanitize_blocks_path_traversal() {
         assert_eq!(sanitize_exe_name("../../evil.exe"), "evil.exe");
+    }
+
+    #[test]
+    fn sanitize_strips_windows_illegal_characters() {
+        assert_eq!(
+            sanitize_exe_name("Game: Subtitle.exe"),
+            "Game  Subtitle.exe"
+        );
+        assert_eq!(sanitize_exe_name("what?<>|*.exe"), "what     .exe");
+    }
+
+    #[test]
+    fn sanitize_empty_name_falls_back_to_game() {
+        assert_eq!(sanitize_exe_name("::"), "game.exe");
+    }
+
+    #[test]
+    fn quest_exe_is_simulated_first_and_deduped() {
+        let games = crate::services::catalog::game_catalog::parse_games(
+            &crate::services::catalog::game_catalog::fixture_bytes(),
+        )
+        .unwrap();
+        let catalog = crate::services::catalog::game_catalog::Catalog::new(
+            games,
+            std::time::Instant::now(),
+            crate::services::catalog::game_catalog::CatalogSource::Network,
+        );
+
+        // A mirrored quest's own executable comes first, catalog names follow.
+        let names = exe_names_for_quest(Some(&catalog), Some("LoL.exe"), "League of Legends");
+        assert_eq!(names.first().map(String::as_str), Some("LoL.exe"));
+        assert!(names.iter().any(|n| n == "leagueclientux.exe"));
+
+        // Unknown game + user exe: the quest's exe leads, game-name fallback stays.
+        let names = exe_names_for_quest(None, Some("CoolGame.exe"), "Cool Game");
+        assert_eq!(
+            names,
+            vec!["CoolGame.exe".to_string(), "Cool Game.exe".to_string()]
+        );
+
+        // No quest exe: unchanged fallback behaviour.
+        let names = exe_names_for_quest(None, None, "Where Winds Meet");
+        assert_eq!(names, vec!["Where Winds Meet.exe".to_string()]);
     }
 
     #[test]

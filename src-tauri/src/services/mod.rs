@@ -4,6 +4,7 @@
 pub mod catalog;
 pub mod discord;
 pub mod memory;
+pub mod queststore;
 pub mod session;
 pub mod spoofer;
 pub mod update;

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   formatTime,
+  orbCountFromReward,
   questTargetLabel,
   type DiscordQuest,
   type SessionStopped,
@@ -32,8 +33,26 @@ describe('questTargetLabel', () => {
     expect(questTargetLabel('[Stream Quest]')).toBe('Voice stream');
   });
 
+  it('humanizes the video marker', () => {
+    expect(questTargetLabel('[Video Quest]')).toBe('Quest video');
+  });
+
   it('passes through executable names', () => {
     expect(questTargetLabel('Endfield.exe')).toBe('Endfield.exe');
+  });
+});
+
+describe('orbCountFromReward', () => {
+  it('parses orb display strings', () => {
+    expect(orbCountFromReward('700 Orbs')).toBe(700);
+    expect(orbCountFromReward('50 orbs')).toBe(50);
+    expect(orbCountFromReward('  1200 ORBS ')).toBe(1200);
+  });
+
+  it('returns null for non-orb rewards', () => {
+    expect(orbCountFromReward('1 Gem')).toBeNull();
+    expect(orbCountFromReward('Orbs')).toBeNull();
+    expect(orbCountFromReward('')).toBeNull();
   });
 });
 

@@ -34,6 +34,8 @@
 | **Backend game search** | Instant, case-insensitive search over the typed catalog from `search_discord_games` — resolves application IDs and executable mappings dynamically. |
 | **Hardened spoofer (Windows)** | Launches staged copies of a harmless binary named after the game's catalog executables, tracks PIDs in a registry, and kills by PID (`taskkill /pid`) — no `taskkill /im`, no `Desktop/Win64`. |
 | **Video & game quests** | 30-second video/console quests and 15-minute game quests with a live progress ring; console/stream quests run purely over the Discord activity IPC. |
+| **Quest Mirror** | Mirror any quest you see in your own Discord client (title, kind, real duration, reward) into a local, on-disk list that merges with the curated presets — no account token is ever read. |
+| **Demo mode** | A display-only session mode: the progress ring and a `+N Orbs` reward overlay run entirely locally, with no spoofer process and no Discord traffic. |
 | **Update check & GitHub link** | The header checks the GitHub releases API for a newer version and links straight to the repository. |
 | **Production UI** | Dark, Discord-native design system (see [`DESIGN.md`](DESIGN.md)); accessible, responsive, with explicit loading/error/connection states. |
 
